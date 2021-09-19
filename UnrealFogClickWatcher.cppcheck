@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <root name="c:/Projects/ToolsProjects/UnrealFogClickWatcher/"/>
+    <importproject>UnrealFogClickWatcher/UnrealFogClickWatcher.vcxproj</importproject>
+</project>
