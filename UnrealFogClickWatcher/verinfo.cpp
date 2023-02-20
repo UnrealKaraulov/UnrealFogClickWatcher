@@ -33,10 +33,10 @@ HRESULT STDAPICALLTYPE DllGetVersion( IN  HMODULE hModule,
 	if ( hModule == NULL ||
 		 ::IsBadReadPtr( lpDVI, sizeof( DLLVERSIONINFO* ) ) )
 	{
-		return FALSE;
+		return (S_FALSE);
 	}
 
-	CONST DWORD cbSize = lpDVI->cbSize;
+	CONST unsigned int cbSize = lpDVI->cbSize;
 
 	if (
 #ifdef DLLVERSIONINFO2
@@ -48,7 +48,7 @@ HRESULT STDAPICALLTYPE DllGetVersion( IN  HMODULE hModule,
 #endif
 		|| ::IsBadWritePtr( lpDVI, cbSize ) )
 	{
-		return FALSE;
+		return (S_FALSE);
 	}
 
 	::ZeroMemory( lpDVI, cbSize );
@@ -162,7 +162,7 @@ BOOL CFileVersionInfo::Open( IN LPCTSTR lpszFileName )
 BOOL CFileVersionInfo::GetVersionInfo( IN LPCTSTR lpszFileName )
 {
 	DWORD dwDummy = 0;
-	DWORD dwSize = ::GetFileVersionInfoSize(
+	unsigned int dwSize = ::GetFileVersionInfoSize(
 		const_cast< LPTSTR >( lpszFileName ), &dwDummy // Set to 0
 	);
 
@@ -199,7 +199,7 @@ BOOL CFileVersionInfo::QueryVersionTrans( void )
 	if ( ::VerQueryValue( m_lpbyVIB, _T( "\\VarFileInfo\\Translation" ), ( LPVOID* ) &lpBuf, &uLen ) )
 	{
 		m_lpdwTrans = ( LPDWORD ) lpBuf;
-		m_nTransCnt = ( uLen / sizeof( DWORD ) );
+		m_nTransCnt = ( uLen / sizeof( unsigned int ) );
 	}
 	return ( BOOL ) ( m_lpdwTrans != NULL );
 }
@@ -301,7 +301,7 @@ BOOL CFileVersionInfo::SetTrans( IN LANGID wLID /*LANG_NEUTRAL*/,
 	return ( m_nTransCur == ( UINT ) nPos );
 }
 
-DWORD CFileVersionInfo::GetTransByIndex( IN UINT nIndex ) const
+unsigned int CFileVersionInfo::GetTransByIndex( IN UINT nIndex ) const
 {
 	if ( m_bValid == FALSE || nIndex == 0 || nIndex > m_nTransCnt )
 		return FALSE;

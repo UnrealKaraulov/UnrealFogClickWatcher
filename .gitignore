@@ -1,0 +1,17 @@
+
+*.ipch
+*.db-wal
+*.db-shm
+*.db
+.vs/UnrealFogClickWatcher/v17/.suo
+*.lock
+*.vsidx
+*.opendb
+*.tlog
+*.txt
+*.log
+*.ilk
+*.recipe
+*.idb
+*.pdb
+*.obj

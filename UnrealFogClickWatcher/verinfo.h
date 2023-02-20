@@ -71,8 +71,8 @@ VERSION HISTORY:
 
 	typedef struct _DLLVERSIONINFO2 {
 		DLLVERSIONINFO	info1;
-		DWORD			dwFlags;				// No flags currently defined
-		ULONGLONG		ullVersion;
+		unsigned int			dwFlags;				// No flags currently defined
+		long long		ullVersion;
 	} DLLVERSIONINFO2;
 
 #endif // DLLVER_MAJOR_MASK
@@ -80,10 +80,10 @@ VERSION HISTORY:
 #ifndef MAKEDLLVERULL
 
 	#define MAKEDLLVERULL( major, minor, build, qfe )\
-		( ( (ULONGLONG)(major) << 48 ) |			 \
-		(   (ULONGLONG)(minor) << 32 ) |			 \
-		(   (ULONGLONG)(build) << 16 ) |			 \
-		(   (ULONGLONG)(  qfe) <<  0 ) )
+		( ( (long long)(major) << 48 ) |			 \
+		(   (long long)(minor) << 32 ) |			 \
+		(   (long long)(build) << 16 ) |			 \
+		(   (long long)(  qfe) <<  0 ) )
 
 #endif // MAKEDLLVERULL
 
@@ -152,13 +152,13 @@ public:	// Implementation:
 	BOOL	SetTrans ( IN LANGID wLID = LANG_NEUTRAL, IN WORD wCP = VI_CP_UNICODE );	
 	BOOL	SetTransIndex( IN UINT nIndex = 0 );
 	INT		FindTrans( IN LANGID wLID, IN WORD wCP ) const;
-	DWORD	GetTransByIndex( IN UINT nIndex  ) const;	
+	unsigned int	GetTransByIndex( IN UINT nIndex  ) const;	
 
 public: // Static members:
 	
 	static BOOL		GetLIDName( IN WORD wLID, OUT LPTSTR lpszName, IN INT nBuf );
 	static BOOL		GetCPName( IN WORD wCP, OUT LPCTSTR* ppszName );
-	//static DWORD	InstallFile( void );
+	//static unsigned int	InstallFile( void );
 	
 public: // Inline members
 
@@ -179,7 +179,7 @@ public: // Inline members
 	inline UINT		GetCurTransIndex( void ) const;		
 	inline LANGID	GetLIDByIndex( IN UINT nIndex ) const;	
 	inline WORD		GetCPByIndex( IN UINT nIndex ) const;	
-	inline DWORD	GetCurTrans( void ) const;		
+	inline unsigned int	GetCurTrans( void ) const;		
 	inline LANGID	GetCurLID( void ) const;	
 	inline WORD		GetCurCP( void ) const;
 
@@ -249,7 +249,7 @@ inline LANGID CFileVersionInfo::GetLIDByIndex( IN UINT nIndex  ) const
 inline WORD CFileVersionInfo::GetCPByIndex( IN UINT nIndex  ) const
 	{ return HIWORD( GetTransByIndex( nIndex ) ); }	
 
-inline DWORD CFileVersionInfo::GetCurTrans( void ) const
+inline unsigned int CFileVersionInfo::GetCurTrans( void ) const
 	{ return GetTransByIndex( GetCurTransIndex() ); }
 
 inline LANGID CFileVersionInfo::GetCurLID( void ) const
