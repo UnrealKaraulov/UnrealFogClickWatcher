@@ -2521,7 +2521,6 @@ void SearchPlayersFogSelect()
 					{
 						if (ClickCount[n].SelectCount >= 0 && ClickCount[n].UnitAddr == selectedunit)
 						{
-							WatcherLog("FOUND FOG\n");
 							found = TRUE;
 							tmpunitselected = &ClickCount[n];
 						}
@@ -2540,7 +2539,6 @@ void SearchPlayersFogSelect()
 						if (ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 5000 && ClickCount[n].SelectCount == -1 && ClickCount[n].UnitAddr == selectedunit)
 						{
 							needcontinue = TRUE;
-							WatcherLog("SKIP FOG\n");
 							break;
 						}
 					}
@@ -2554,7 +2552,6 @@ void SearchPlayersFogSelect()
 						{
 							if (!(FogHelperList[z].FogState[i][0] && FogHelperList[z].FogState[i][1]))
 							{
-								WatcherLog("222 SKIP FOG 222\n");
 								needcontinue = TRUE;
 							}
 						}
@@ -2589,18 +2586,15 @@ void SearchPlayersFogSelect()
 					{
 						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 20 * DetectQuality)
 						{
-							WatcherLog("DETECT1 FOG\n");
 							tmpunitselected->SelectCount++;
 							tmpunitselected->LatestTime = GetGameTime();
 						}
 					}
 					else
 					{
-						WatcherLog("DETECT2 FOG\n");
 						tmpunitselected->SelectCount = -2;
 						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 120 * DetectQuality)
 						{
-							WatcherLog("DETECT3 FOG\n");
 							if (!IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer))
 							{
 								if (MinimapPingFogClick)
@@ -2673,7 +2667,6 @@ void SearchPlayersFogSelect()
 					{
 						if ((ClickCount[n].SelectCount == -2 || ClickCount[n].SelectCount >= 0) && ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 10000 && IsNotBadUnit(ClickCount[n].UnitAddr))
 						{
-							WatcherLog("DETECT4 FOG\n");
 							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [POSSIBLE]\0",
 								GetPlayerColorString(Player(i)),
 								GetPlayerName(i, 0),
@@ -2702,7 +2695,6 @@ void SearchPlayersFogSelect()
 				{
 					if ((ClickCount[n].SelectCount == -2 || ClickCount[n].SelectCount >= 0) && ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 10000 && IsNotBadUnit(ClickCount[n].UnitAddr))
 					{
-						WatcherLog("DETECT44 FOG\n");
 						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [POSSIBLE]\0",
 							GetPlayerColorString(Player(i)),
 							GetPlayerName(i, 0),
