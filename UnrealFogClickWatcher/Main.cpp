@@ -39,8 +39,6 @@ BOOL WatcherNewDebugEnabled = TRUE;
 
 char PrintBuffer[2048];
 
-unsigned char* GAME_PrintToScreen = 0;
-
 long long CurTickCount = 0;
 
 long long LastGameUpdate = 0;
@@ -54,6 +52,21 @@ long long StartGameTime = 0;
 BOOL LogEnabled = FALSE;
 
 void WatcherLog(const char* format, ...)
+{
+	if (!LogEnabled)
+		return;
+	char buffer[1024];
+	va_list args;
+	va_start(args, format);
+	vsprintf_s(buffer, format, args);
+	std::ofstream outfile(logFileName, std::ios_base::app);
+	if (!outfile.bad() && outfile.is_open())
+		outfile << buffer;
+	outfile.close();
+	va_end(args);
+}
+
+void WatcherLogForce(const char* format, ...)
 {
 	if (!LogEnabled)
 		return;
@@ -244,7 +257,7 @@ int GetUnitOwnerSlot(int unitaddr)
 {
 	if (unitaddr)
 		return *(int*)(unitaddr + 88);
-	return 20;
+	return -1;
 }
 
 unsigned char* pGlobalPlayerData;
@@ -809,11 +822,6 @@ BOOL IsDetectedTower(int unitaddr)
 unsigned char* UnitVtable = 0;
 unsigned char* ItemVtable = 0;
 
-BOOL IsOkayPtr(void* addr, unsigned int size)
-{
-	return !IsBadReadPtr(addr, size);
-}
-
 float GetUnitTimer(int unitaddr)
 {
 	int unitdataddr = *(int*)(unitaddr + 0x28);
@@ -822,9 +830,7 @@ float GetUnitTimer(int unitaddr)
 #ifdef BOTDEBUG
 	PrintDebugInfo("CheckBadUnit - ENDCHExCK5");
 #endif
-	if (IsOkayPtr((void*)(unitdataddr + 0xA4), 4))
-		return *(float*)(unitdataddr + 0xA0);
-	return 0.0f;
+	return *(float*)(unitdataddr + 0xA0);
 }
 
 unsigned char* GetSomeAddr_Addr = 0;
@@ -910,8 +916,6 @@ BOOL IsNotBadItem(int itemaddr, BOOL onlymemcheck = FALSE)
 }
 
 
-
-
 typedef int(__cdecl* pPlayer)(int number);
 pPlayer PlayerReal;
 
@@ -992,13 +996,7 @@ BOOL __declspec(naked) __cdecl IsUnitSelected127a_128a(int unitaddr, int player)
 
 BOOL __cdecl IsUnitSelected(int unitaddr, int player)
 {
-	if (!unitaddr || !player)
-		return FALSE;
-	if (GameVersion == 0x126a)
-		return IsUnitSelected126a(unitaddr, player);
-	else if (GameVersion == 0x127a || GameVersion == 0x128a)
-		return IsUnitSelected127a_128a(unitaddr, player);
-	return FALSE;
+	return IsUnitSelected126a(unitaddr, player);
 }
 
 
@@ -1028,27 +1026,28 @@ void AddStringToLogFile(const char* line)
 }
 
 
-void DisplayText(char* szText, float fDuration)
+void DisplayText(const char* szText, float fDuration)
 {
 	unsigned int dwDuration = *((unsigned int*)&fDuration);
+	unsigned char* GAME_PrintToScreen = GameDll + 0x2F8E40;
 
 	if (LogEnabled)
 	{
 		AddStringToLogFile(szText);
 	}
 
-	if (GameStarted)
+	if (!GameDll || !*(unsigned char**)pW3XGlobalClass)
+		return;
+	__asm
 	{
-		__asm
-		{
-			PUSH 0xFFFFFFFF;
-			PUSH dwDuration;
-			PUSH szText;
-			MOV		ECX, [pW3XGlobalClass];
-			MOV		ECX, [ECX];
-			MOV		EAX, pPrintText2;
-			CALL	EAX;
-		}
+		PUSH	0xFFFFFFFF;
+		PUSH	dwDuration;
+		PUSH	szText;
+		PUSH	0x0;
+		PUSH	0x0;
+		MOV		ECX, [pW3XGlobalClass];
+		MOV		ECX, [ECX];
+		CALL	GAME_PrintToScreen;
 	}
 }
 
@@ -1617,13 +1616,13 @@ struct PlayerEvent
 	long long Time;
 };
 
-PlayerEvent PlayerEventList[20][20];
+PlayerEvent PlayerEventList[MAX_PLAYERS][20];
 int MeepoPoofID = 0x41304E38;
 //BOOL PlayerMeepoDetect[ 20 ];
 
 void ShiftLeftAndAddNewActionScanForBot(int PlayerID, PlayerEvent NewPlayerEvent)
 {
-	if (GetLocalPlayerNumber() != PlayerID || DetectLocalPlayer)
+	if (PlayerID >= 0 && PlayerID < MAX_PLAYERS && (GetLocalPlayerNumber() != PlayerID || DetectLocalPlayer))
 	{
 		if (DebugLog)
 			WatcherLog("[DEBUG][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X \n", NewPlayerEvent.Time, NewPlayerEvent.EventID, NewPlayerEvent.SkillID, NewPlayerEvent.Caster);
@@ -2394,19 +2393,14 @@ void UpdateFogHelper()
 	if (CurTickCount - LatestFogCheck > 300)
 	{
 		LatestFogCheck = CurTickCount;
-		FillUnitCountAndUnitArray();
-
 		for (int n = 0; n < MAX_PLAYERS; n++)
 		{
 			if (GetLocalPlayerNumber() == n && !DetectLocalPlayer)
 				continue;
-
 			if (!Player(n))
 				continue;
-
 			if (GetPlayerController(Player(n)) != 0 || GetPlayerSlotState(Player(n)) != 1)
 				continue;
-
 			int CurrentUnit = 0;
 			if (SafeUnitCount > 0)
 			{
@@ -2423,7 +2417,6 @@ void UpdateFogHelper()
 							GetUnitLocation2D(CurrentUnit, &unitx, &unity);
 
 							BOOL FoundUnit = FALSE;
-
 							for (unsigned int m = 0; m < FogHelperList.size(); m++)
 							{
 								if (CurrentUnit == FogHelperList[m].UnitAddr)
@@ -2433,11 +2426,10 @@ void UpdateFogHelper()
 									FogHelperList[m].FogState[n][0] = (IsFoggedToPlayerMy(&unitx, &unity, Player(n)) || !IsUnitVisibled(CurrentUnit, Player(n)));
 								}
 							}
-
 							if (!FoundUnit)
 							{
 								FogHelper tmpghelp;
-								for (int z = 0; z < 20; z++)
+								for (int z = 0; z < MAX_PLAYERS; z++)
 								{
 									tmpghelp.FogState[z][0] = TRUE;
 									tmpghelp.FogState[z][1] = TRUE;
@@ -2461,15 +2453,14 @@ void UpdateFogHelper()
 }
 
 
-int PlayerSelectedItems[20];
+int PlayerSelectedItems[MAX_PLAYERS];
 
 
 void SearchPlayersFogSelect()
 {
+	FillUnitCountAndUnitArray();
 	if (DetectQuality >= 3)
 		UpdateFogHelper();
-
-	FillUnitCountAndUnitArray();
 
 	for (int i = 0; i < MAX_PLAYERS; i++)
 	{
@@ -2493,7 +2484,6 @@ void SearchPlayersFogSelect()
 			continue;
 
 		int OwnedPlayerSlot = GetUnitOwnerSlot(selectedunit);
-
 		if (OwnedPlayerSlot < 0 || OwnedPlayerSlot > 15)
 			continue;
 
@@ -2592,7 +2582,6 @@ void SearchPlayersFogSelect()
 					}
 					else
 					{
-						tmpunitselected->SelectCount = -2;
 						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 120 * DetectQuality)
 						{
 							if (!IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer))
@@ -2675,14 +2664,8 @@ void SearchPlayersFogSelect()
 
 							ActionTime = ClickCount[n].LatestTime;
 							DisplayText(PrintBuffer, 6.0f);
-
-							ClickCount[n].SelectCount = -3;
 						}
-						if (ClickCount[n].UnitAddr != selectedunit)
-						{
-							if (ClickCount[n].SelectCount != -1)
-								ClickCount[n].SelectCount = -3;
-						}
+						ClickCount[n].SelectCount = -3;
 					}
 				}
 			}
@@ -2703,47 +2686,67 @@ void SearchPlayersFogSelect()
 
 						ActionTime = ClickCount[n].LatestTime;
 						DisplayText(PrintBuffer, 6.0f);
-
-						ClickCount[n].SelectCount = -3;
 					}
-
-					if (ClickCount[n].UnitAddr != selectedunit)
-					{
-						if (ClickCount[n].SelectCount != -1)
-							ClickCount[n].SelectCount = -3;
-					}
+					ClickCount[n].SelectCount = -3;
 				}
 			}
 		}
 	}
 }
-char absbuf[100];
+
+void CreateFogClickWatcherConfig()
+{
+	/*FILE* f = NULL;
+	fopen_s(&f, detectorConfigPath.c_str(), "w");
+	if (f != NULL)
+	{
+		fclose(f);
+	}*/
+	CIniWriter fogwatcherconf(detectorConfigPath.c_str());
+	fogwatcherconf.WriteBool("FogClickWatcher", "LogEnabled", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetIssuedOrderId", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetAttacker", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityUnit", TRUE);
+	fogwatcherconf.WriteInt("FogClickWatcher", "UnitDetectionMethod", 3);
+	fogwatcherconf.WriteInt("FogClickWatcher", "MeepoPoofID", 0x41304E38);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
+	//fogwatcherconf.WriteBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
+	fogwatcherconf.WriteInt("FogClickWatcher", "DetectQuality", 2);
+	fogwatcherconf.WriteBool("FogClickWatcher", "PrintOrderName", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "SkipIllusions", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectImpossibleClicks", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", FALSE);
+}
 
 void LoadFogClickWatcherConfig()
 {
+	bool newcfg = false;
+	if (!FileExists(detectorConfigPath.c_str()))
+	{
+		newcfg = true;
+		CreateFogClickWatcherConfig();
+		LogEnabled = TRUE;
+		WatcherLog("Create new config\n");
+	}
+
 	CIniReader fogwatcherconf(detectorConfigPath.c_str());
 
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "LogEnabled", TRUE))
-	{
-		LogEnabled = TRUE;
-		if (!FirstInitialized)
-			WatcherLog("Write clicks in log %s\n", "TRUE");
-	}
+	LogEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "LogEnabled", TRUE);
 
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "LocalPlayerEnable", FALSE))
+	if (LogEnabled)
 	{
-		DetectLocalPlayer = TRUE;
-		if (!FirstInitialized)
-			WatcherLog("Config:LocalPlayerEnable->%s\n", "TRUE");
+		WatcherLog("-------------------------------------------------------------------------------\n");
+		WatcherLog("-------------------------------------------------------------------------------\n");
+		WatcherLog("---------------------------------LOAD CFG--------------------------------------\n");
+		WatcherLog("-------------------------------------------------------------------------------\n");
+		WatcherLog("-------------------------------------------------------------------------------\n");
 	}
-	else
-	{
-		DetectLocalPlayer = FALSE;
-		if (!FirstInitialized)
-			WatcherLog("Config:LocalPlayerEnable->%s\n", "FALSE");
-	}
-
 
 	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetTriggerEventId", TRUE))
 	{
@@ -2814,7 +2817,6 @@ void LoadFogClickWatcherConfig()
 		pRecoveryJassNative4 = CreateJassNativeHook((int)GetSpellAbilityUnit_real, (int)&GetSpellAbilityUnit_hooked);
 		if (pRecoveryJassNative4 <= 0)
 			pRecoveryJassNative4 = pOldRecoveryJassNative4;
-
 	}
 	else
 	{
@@ -2822,212 +2824,39 @@ void LoadFogClickWatcherConfig()
 			WatcherLog("Config:GetSpellAbilityUnit->%s\n", "TRUE");
 	}
 
-	UnitDetectionMethod = fogwatcherconf.ReadBool("FogClickWatcher", "UnitDetectionMethod", 3);
-	if (UnitDetectionMethod)
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:UnitDetectionMethod->%i\n", UnitDetectionMethod);
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:UnitDetectionMethod->%i\n", 3);
-	}
 
-	MeepoPoofID = fogwatcherconf.ReadBool("FogClickWatcher", "MeepoPoofID", 0);
+	DetectLocalPlayer = fogwatcherconf.ReadBool("FogClickWatcher", "LocalPlayerEnable", FALSE);
+	UnitDetectionMethod = fogwatcherconf.ReadInt("FogClickWatcher", "UnitDetectionMethod", 3);
+	MeepoPoofID = fogwatcherconf.ReadInt("FogClickWatcher", "MeepoPoofID", 0);
+	DetectRightClickOnlyHeroes = fogwatcherconf.ReadBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
+	MinimapPingFogClick = fogwatcherconf.ReadBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
+	DetectQuality = fogwatcherconf.ReadInt("FogClickWatcher", "DetectQuality", 3);
+	PrintOrderName = fogwatcherconf.ReadBool("FogClickWatcher", "PrintOrderName", FALSE);
+	SkipIllusions = fogwatcherconf.ReadBool("FogClickWatcher", "SkipIllusions", FALSE);
+	DetectImpossibleClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectImpossibleClicks", FALSE);
+	DetectItemDestroyer = fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
+	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", FALSE);
+	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE);
+	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE);
 
-	if (MeepoPoofID)
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:MeepoPoofID->%i\n", MeepoPoofID);
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:MeepoPoofID->%i\n", 0x41304E38);
-	}
-
-
-	if (!fogwatcherconf.ReadBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectRightClickOnlyHeroes->%s\n", "FALSE");
-		DetectRightClickOnlyHeroes = FALSE;
-	}
-	else
-	{
-		DetectRightClickOnlyHeroes = TRUE;
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectRightClickOnlyHeroes->%s\n", "TRUE");
-	}
-
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "MinimapPingFogClick", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:MinimapPingFogClick->%s[!!!WARNING!!! IT DETECTED ON ICCUP AS MAPHACK!]\n", "TRUE");
-		MinimapPingFogClick = TRUE;
-	}
-	else
-	{
-		MinimapPingFogClick = FALSE;
-		if (!FirstInitialized)
-			WatcherLog("Config:MinimapPingFogClick->%s\n", "FALSE");
-	}
-
-	DetectQuality = fogwatcherconf.ReadBool("FogClickWatcher", "DetectQuality", 2);
-
-	if (DetectQuality)
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectQuality->%i\n", DetectQuality);
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectQuality->%i\n", 2);
-	}
-
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "PrintOrderName", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:PrintOrderName->%s\n", "TRUE");
-		PrintOrderName = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:PrintOrderName->%s\n", "FALSE");
-	}
-
-
-	if (!fogwatcherconf.ReadBool("FogClickWatcher", "SkipIllusions", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:SkipIllusions->%s\n", "FALSE");
-		SkipIllusions = FALSE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:SkipIllusions->%s\n", "TRUE");
-	}
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "DetectImpossibleClicks", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectImpossibleClicks->%s\n", "TRUE");
-		DetectImpossibleClicks = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectImpossibleClicks->%s\n", "FALSE");
-	}
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectItemDestroyer->%s\n", "TRUE");
-		DetectItemDestroyer = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectItemDestroyer->%s\n", "FALSE");
-	}
-
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectOwnItems->%s\n", "TRUE");
-		DetectOwnItems = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectOwnItems->%s\n", "FALSE");
-	}
-
-
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectPointClicks->%s\n", "TRUE");
-		DetectPointClicks = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DetectPointClicks->%s\n", "FALSE");
-	}
-
-
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE))
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DebugLog->%s\n", "TRUE");
-		DebugLog = TRUE;
-	}
-	else
-	{
-		if (!FirstInitialized)
-			WatcherLog("Config:DebugLog->%s\n", "FALSE");
-	}
-
-
+	WatcherLog("Config:LogEnabled->%s\n", LogEnabled ? "TRUE" : "FALSE");
+	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
+	WatcherLog("Config:UnitDetectionMethod->%i\n", UnitDetectionMethod);
+	WatcherLog("Config:MeepoPoofID->%X\n", MeepoPoofID);
+	WatcherLog("Config:DetectRightClickOnlyHeroes->%s\n", DetectRightClickOnlyHeroes ? "TRUE" : "FALSE");
+	WatcherLog("Config:MinimapPingFogClick->%s[!!!WARNING!!! IT DETECTED ON ICCUP AS MAPHACK!]\n", MinimapPingFogClick ? "TRUE" : "FALSE");
+	WatcherLog("Config:DetectQuality->%i\n", DetectQuality);
+	WatcherLog("Config:PrintOrderName->%s\n", PrintOrderName ? "TRUE" : "FALSE");
+	WatcherLog("Config:SkipIllusions->%s\n", SkipIllusions ? "TRUE" : "FALSE");
+	WatcherLog("Config:DetectImpossibleClicks->%s\n", DetectImpossibleClicks ? "TRUE" : "FALSE");
+	WatcherLog("Config:DetectItemDestroyer->%s\n", DetectItemDestroyer ? "TRUE" : "FALSE");
+	WatcherLog("Config:DetectOwnItems->%s\n", DetectOwnItems ? "TRUE" : "FALSE");
+	WatcherLog("Config:DetectPointClicks->%s\n", DetectPointClicks ? "TRUE" : "FALSE");
+	WatcherLog("Config:DebugLog->%s\n", DebugLog ? "TRUE" : "FALSE");
 
 	//DetectRightClickOnlyHeroes
 	FirstInitialized = TRUE;
 }
-
-void CreateFogClickWatcherConfig()
-{
-	/*FILE* f = NULL;
-	fopen_s(&f, detectorConfigPath.c_str(), "w");
-	if (f != NULL)
-	{
-		fclose(f);
-	}*/
-	CIniWriter fogwatcherconf(detectorConfigPath.c_str());
-	fogwatcherconf.WriteBool("FogClickWatcher", "LogEnabled", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetIssuedOrderId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetAttacker", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityUnit", TRUE);
-	fogwatcherconf.WriteInt("FogClickWatcher", "UnitDetectionMethod", 3);
-	fogwatcherconf.WriteInt("FogClickWatcher", "MeepoPoofID", 0x41304E38);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
-	//fogwatcherconf.WriteBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
-	fogwatcherconf.WriteInt("FogClickWatcher", "DetectQuality", 2);
-	fogwatcherconf.WriteBool("FogClickWatcher", "PrintOrderName", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "SkipIllusions", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectImpossibleClicks", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", FALSE);
-}
-
-void InitOtherFunctions()
-{
-	bool newcfg = false;
-	if (!FileExists(detectorConfigPath.c_str()))
-	{
-		newcfg = true;
-		CreateFogClickWatcherConfig();
-	}
-
-	LoadFogClickWatcherConfig();
-	WatcherLog("Create new config\n");
-}
-
-
 
 
 void* PlayerWatchThread = 0;
@@ -3084,7 +2913,7 @@ void GameWaiting()
 			latestcheck = 0;
 			ActionTime = 0;
 
-			InitOtherFunctions();
+			LoadFogClickWatcherConfig();
 
 			ActionTime = GetCurrentLocalTime();
 			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v13 for Warcraft 1.26a by UnrealKaraulov......");
@@ -3131,7 +2960,6 @@ void Init126aVer()
 	IsUnitVisibledAddr = GameDll + 0x3C7AF0 + 0xA;
 	pW3XGlobalClass = GameDll + 0xAB4F80;
 	pPrintText2 = GameDll + 0x2F69A0;
-	GAME_PrintToScreen = GameDll + 0x2F8E40;
 	GetPlayerColor = (pGetPlayerColor)(GameDll + 0x3C1240);
 	UnitVtable = GameDll + 0x931934;
 	ItemVtable = GameDll + 0x9320B4;
@@ -3152,8 +2980,6 @@ void Init126aVer()
 	pGlobalPlayerData = 0xAB65F4 + GameDll;
 	PingMinimapEx = (pPingMinimapEx)(GameDll + 0x3B8660);
 	GetSomeAddr_Addr = 0x03FA30 + GameDll;
-
-	//InitOtherFunctions( );
 	MapFileName = (const char*)(GameDll + 0xAAE7CE);
 }
 
@@ -3270,6 +3096,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		logFileName += "log";
 
 		InitializeFogClickWatcher();
+		LoadFogClickWatcherConfig();
 	}
 	else if (r == DLL_PROCESS_DETACH)
 	{
