@@ -24,7 +24,10 @@
 
 ```
 1. Перемиестить UnrealFogClickWatcher.mix в папку с Warcraft 3
+
 2. Переместить UnrealFogClickWatcher.ini в папку с Warcraft 3
+
 3. Перезапустить игру
+
 4. Не рекомендуется изменять настройки по умолчанию!!
 ```
