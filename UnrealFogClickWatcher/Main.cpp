@@ -129,16 +129,19 @@ BOOL DetectMeepoKey = TRUE;
 
 BOOL DebugLog = FALSE;
 
+BOOL DebugState = FALSE;
+
 int DetectQuality = 2;
 
 BOOL ExceptionFilterHooked = FALSE;
 
-struct UnitSelected
+struct UnitSelectedStruct
 {
 	int PlayerNum;
 	int UnitAddr;
 	int SelectCount;
 	long long LatestTime;
+	BOOL initialVisibled;
 };
 
 struct FogHelper
@@ -147,7 +150,7 @@ struct FogHelper
 	BOOL FogState[MAX_PLAYERS][2];
 };
 
-std::vector<UnitSelected> ClickCount;
+std::vector<UnitSelectedStruct> ClickCount;
 
 std::vector<FogHelper> FogHelperList;
 
@@ -942,61 +945,22 @@ BOOL __declspec(naked) __cdecl IsUnitVisibled126a(int unitaddr, int player)
 	}
 }
 
-BOOL __declspec(naked) __cdecl IsUnitVisibled127a_128a(int unitaddr, int player)
-{
-	__asm
-	{
-		PUSH EBP;
-		MOV EBP, ESP;
-		MOV ECX, [EBP + 0x8];
-		PUSH ESI;
-		MOV EAX, ECX;
-		JMP IsUnitVisibledAddr;
-	}
-}
-
 BOOL __cdecl IsUnitVisibled(int unitaddr, int player)
 {
-	if (!unitaddr || !player)
+	if (unitaddr <= 0 || player <= 0)
+	{
 		return TRUE;
-	if (GameVersion == 0x126a)
-		return IsUnitVisibled126a(unitaddr, player);
-	else if (GameVersion == 0x127a || GameVersion == 0x128a)
-		return IsUnitVisibled127a_128a(unitaddr, player);
-	return TRUE;
-}
-
-unsigned char* IsUnitSelectedAddr = 0;
-
-
-BOOL __declspec(naked) __cdecl IsUnitSelected126a(int unitaddr, int player)
-{
-	__asm
-	{
-		MOV ECX, [ESP + 0x4];
-		PUSH EDI;
-		MOV EAX, ECX;
-		JMP IsUnitSelectedAddr;
 	}
+	return IsUnitVisibled126a(unitaddr, player);
 }
 
-BOOL __declspec(naked) __cdecl IsUnitSelected127a_128a(int unitaddr, int player)
-{
-	__asm
-	{
-		PUSH EBP;
-		MOV EBP, ESP;
-		MOV ECX, [EBP + 0x8];
-		PUSH ESI;
-		MOV EAX, ECX;
-		JMP IsUnitSelectedAddr;
-	}
-}
+typedef int(__cdecl* pIsUnitSelected)(int unitaddr, int playerdataaddr);
+pIsUnitSelected IsUnitSelectedReal;
 
 
-BOOL __cdecl IsUnitSelected(int unitaddr, int player)
+BOOL __fastcall IsUnitSelected(int unitaddr, int playerdataaddr)
 {
-	return IsUnitSelected126a(unitaddr, player);
+	return IsUnitSelectedReal(unitaddr, playerdataaddr);
 }
 
 
@@ -1017,32 +981,34 @@ int IsGame()
 
 long long ActionTime = 0;
 
-void AddStringToLogFile(const char* line)
-{
-	int seconds = (int)(ActionTime / 1000) % 60;
-	int minutes = (int)((ActionTime / (1000 * 60)) % 60);
-	int hours = (int)((ActionTime / (1000 * 60 * 60)) % 24);
-	WatcherLog("[%.2d:%.2d:%.2d] : %s\n", hours, minutes, seconds, line);
-}
-
-
-void DisplayText(const char* szText, float fDuration)
+void DisplayText(const std::string& szText, float fDuration)
 {
 	unsigned int dwDuration = *((unsigned int*)&fDuration);
 	unsigned char* GAME_PrintToScreen = GameDll + 0x2F8E40;
 
+	int seconds = (int)(ActionTime / 1000) % 60;
+	int minutes = (int)((ActionTime / (1000 * 60)) % 60);
+	int hours = (int)((ActionTime / (1000 * 60 * 60)) % 24);
+
+	char timeBuff[64];
+	sprintf_s(timeBuff, "[%.2d:%.2d:%.2d] : ", hours, minutes, seconds);
+
+	std::string outLineStr = (timeBuff + szText);
+	const char* outLinePointer = outLineStr.c_str();
+
 	if (LogEnabled)
 	{
-		AddStringToLogFile(szText);
+		WatcherLog((outLineStr + "\n").c_str());
 	}
 
 	if (!GameDll || !*(unsigned char**)pW3XGlobalClass)
 		return;
+
 	__asm
 	{
 		PUSH	0xFFFFFFFF;
 		PUSH	dwDuration;
-		PUSH	szText;
+		PUSH	outLinePointer;
 		PUSH	0x0;
 		PUSH	0x0;
 		MOV		ECX, [pW3XGlobalClass];
@@ -1132,9 +1098,9 @@ int GetSelectedUnit(int slot)
 			if (UnitDetectionMethod == 1)
 			{
 				int unitaddr = unit1;
-				if (unitaddr > 0 && unitcount == 1 && unitcount2 == 1)
+				if (unitaddr > 0)
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, Player(slot)))
+					if (IsNotBadUnit(unitaddr) /*&& unitcount*/ && IsUnitSelected(unitaddr, PlayerData1))
 					{
 						return unitaddr;
 					}
@@ -1145,7 +1111,7 @@ int GetSelectedUnit(int slot)
 				int unitaddr = unit2;
 				if (unitaddr > 0 && unitcount == 1 && unitcount2 == 1)
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, Player(slot)))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
 					{
 						return unitaddr;
 					}
@@ -1168,17 +1134,17 @@ int GetSelectedUnit(int slot)
 			else if (UnitDetectionMethod == 4)
 			{
 				int unitaddr = unit1;
-				if (unitaddr > 0 && unitcount == 1)
+				if (unitaddr > 0 && (unitcount == 1 || unitcount2 == 1))
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, Player(slot)))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
 					{
 						return unitaddr;
 					}
 				}
 				unitaddr = unit2;
-				if (unitaddr > 0 && unitcount2 == 1)
+				if (unitaddr > 0 && (unitcount == 1 || unitcount2 == 1))
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, Player(slot)))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
 					{
 						return unitaddr;
 					}
@@ -1370,6 +1336,10 @@ int GetItemOwner(int itemaddr)
 
 BOOL __cdecl IsFoggedToPlayerMy(float* pX, float* pY, int player)
 {
+	if (player <= 0)
+	{
+		return FALSE;
+	}
 	// CENTER
 	float x1 = *pX;
 	float y1 = *pY;
@@ -2236,7 +2206,6 @@ int GetTriggerEventId_hooked()
 
 	GetTriggerEventIdCalled = TRUE;
 
-
 	ProcessNewAction tmpProcessNewAction;
 	tmpProcessNewAction.CasterUnitHandle = GetTriggerUnit();
 	tmpProcessNewAction.EventID = GetTriggerEventId_real();
@@ -2455,6 +2424,7 @@ void UpdateFogHelper()
 
 int PlayerSelectedItems[MAX_PLAYERS];
 
+int LatestVisibledUnits[MAX_PLAYERS];
 
 void SearchPlayersFogSelect()
 {
@@ -2498,21 +2468,25 @@ void SearchPlayersFogSelect()
 		{
 			float unitx = 0.0f, unity = 0.0f;
 			GetUnitLocation2D(selectedunit, &unitx, &unity);
+
+
 			if (IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer) || !IsUnitVisibled(selectedunit, hCurrentPlayer))
 			{
 				BOOL found = FALSE;
 				BOOL needcontinue = FALSE;
 
-				UnitSelected* tmpunitselected = NULL;
+				UnitSelectedStruct* tmpunitselected = NULL;
 
 				for (unsigned int n = 0; n < ClickCount.size(); n++)
 				{
 					if (ClickCount[n].PlayerNum == i)
 					{
-						if (ClickCount[n].SelectCount >= 0 && ClickCount[n].UnitAddr == selectedunit)
+						if ((ClickCount[n].SelectCount >= 0 || ClickCount[n].SelectCount == -5) && ClickCount[n].UnitAddr == selectedunit)
 						{
 							found = TRUE;
 							tmpunitselected = &ClickCount[n];
+							if (ClickCount[n].SelectCount == -5)
+								ClickCount[n].SelectCount = 0;
 						}
 						else
 						{
@@ -2555,15 +2529,16 @@ void SearchPlayersFogSelect()
 
 				if (!found)
 				{
-					UnitSelected tmpus;
+					UnitSelectedStruct tmpus;
 					tmpus.PlayerNum = i;
 					tmpus.UnitAddr = selectedunit;
 					tmpus.LatestTime = GetGameTime();
 					tmpus.SelectCount = 0;
+					tmpus.initialVisibled = FALSE;
 					ClickCount.push_back(tmpus);
 					tmpunitselected = &ClickCount[ClickCount.size() - 1];
 
-					if (ClickCount.size() >= 500)
+					if (ClickCount.size() >= 1000)
 					{
 						ClickCount.erase(ClickCount.begin());
 					}
@@ -2592,11 +2567,19 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [DETECTED]",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
-									GetObjectName(selectedunit));
+									GetObjectName(selectedunit),
+									tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i] ? "POSSIBLE" : "DETECTED");
+
+								if (DebugState)
+								{
+									char detectUnitAndPlayer[64];
+									sprintf_s(detectUnitAndPlayer, "%X=%X", GetPlayerByNumber(i), selectedunit);
+									DisplayText(detectUnitAndPlayer, 6.0f);
+								}
 							}
 							else
 							{
@@ -2605,11 +2588,18 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select fogged %s%s|r|r [DETECTED]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
-									GetObjectName(selectedunit));
+									GetObjectName(selectedunit),
+									tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i] ? "POSSIBLE" : "DETECTED");
+								if (DebugState)
+								{
+									char detectUnitAndPlayer[64];
+									sprintf_s(detectUnitAndPlayer, "%X=%X", GetPlayerByNumber(i), selectedunit);
+									DisplayText(detectUnitAndPlayer, 6.0f);
+								}
 							}
 							tmpunitselected->SelectCount = -1;
 
@@ -2650,11 +2640,43 @@ void SearchPlayersFogSelect()
 			}
 			else
 			{
+				BOOL found = FALSE;
 				for (unsigned int n = 0; n < ClickCount.size(); n++)
 				{
 					if (ClickCount[n].PlayerNum == i)
 					{
-						if ((ClickCount[n].SelectCount == -2 || ClickCount[n].SelectCount >= 0) && ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 10000 && IsNotBadUnit(ClickCount[n].UnitAddr))
+						if (ClickCount[n].UnitAddr == selectedunit)
+						{
+							ClickCount[n].initialVisibled = TRUE;
+						}
+						if ((ClickCount[n].SelectCount >= 0 || ClickCount[n].SelectCount == -5) && ClickCount[n].UnitAddr == selectedunit)
+						{
+							ClickCount[n].initialVisibled = TRUE;
+							found = TRUE;
+						}
+					}
+				}
+
+				if (!found)
+				{
+					UnitSelectedStruct tmpus;
+					tmpus.PlayerNum = i;
+					tmpus.UnitAddr = selectedunit;
+					tmpus.LatestTime = GetGameTime();
+					tmpus.SelectCount = -5;
+					tmpus.initialVisibled = TRUE;
+					LatestVisibledUnits[i] = selectedunit;
+					ClickCount.push_back(tmpus);
+					if (ClickCount.size() >= 1000)
+					{
+						ClickCount.erase(ClickCount.begin());
+					}
+				}
+				/*for (unsigned int n = 0; n < ClickCount.size(); n++)
+				{
+					if (ClickCount[n].PlayerNum == i)
+					{
+						if (ClickCount[n].SelectCount >= 0 && ClickCount[n].LatestTime != 0 && IsNotBadUnit(ClickCount[n].UnitAddr))
 						{
 							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [POSSIBLE]\0",
 								GetPlayerColorString(Player(i)),
@@ -2665,9 +2687,9 @@ void SearchPlayersFogSelect()
 							ActionTime = ClickCount[n].LatestTime;
 							DisplayText(PrintBuffer, 6.0f);
 						}
-						ClickCount[n].SelectCount = -3;
+						ClickCount[n].SelectCount = -1;
 					}
-				}
+				}*/
 			}
 		}
 		else
@@ -2676,7 +2698,7 @@ void SearchPlayersFogSelect()
 			{
 				if (ClickCount[n].PlayerNum == i)
 				{
-					if ((ClickCount[n].SelectCount == -2 || ClickCount[n].SelectCount >= 0) && ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 10000 && IsNotBadUnit(ClickCount[n].UnitAddr))
+					if (ClickCount[n].SelectCount >= 0 && ClickCount[n].LatestTime != 0 && IsNotBadUnit(ClickCount[n].UnitAddr))
 					{
 						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [POSSIBLE]\0",
 							GetPlayerColorString(Player(i)),
@@ -2687,7 +2709,7 @@ void SearchPlayersFogSelect()
 						ActionTime = ClickCount[n].LatestTime;
 						DisplayText(PrintBuffer, 6.0f);
 					}
-					ClickCount[n].SelectCount = -3;
+					ClickCount[n].SelectCount = -1;
 				}
 			}
 		}
@@ -2722,6 +2744,7 @@ void CreateFogClickWatcherConfig()
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", FALSE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", TRUE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "Debug", FALSE);
 }
 
 void LoadFogClickWatcherConfig()
@@ -2838,6 +2861,7 @@ void LoadFogClickWatcherConfig()
 	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", FALSE);
 	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE);
 	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE);
+	DebugState = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", FALSE);
 
 	WatcherLog("Config:LogEnabled->%s\n", LogEnabled ? "TRUE" : "FALSE");
 	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
@@ -2853,6 +2877,7 @@ void LoadFogClickWatcherConfig()
 	WatcherLog("Config:DetectOwnItems->%s\n", DetectOwnItems ? "TRUE" : "FALSE");
 	WatcherLog("Config:DetectPointClicks->%s\n", DetectPointClicks ? "TRUE" : "FALSE");
 	WatcherLog("Config:DebugLog->%s\n", DebugLog ? "TRUE" : "FALSE");
+	WatcherLog("Config:Debug->%s\n", DebugState ? "TRUE" : "FALSE");
 
 	//DetectRightClickOnlyHeroes
 	FirstInitialized = TRUE;
@@ -2956,7 +2981,7 @@ void Init126aVer()
 	_GetSpellTargetY = (pGetSpellTargetY)(GameDll + 0x3C3670);
 	GetHandleUnitAddress = (pGetHandleUnitAddress)(GameDll + 0x3BDCB0);
 	GetHandleItemAddress = (pGetHandleUnitAddress)(GameDll + 0x3BEB50);
-	IsUnitSelectedAddr = GameDll + 0x3C7E00 + 0xA;
+	IsUnitSelectedReal = (pIsUnitSelected)(GameDll + 0x421E20);
 	IsUnitVisibledAddr = GameDll + 0x3C7AF0 + 0xA;
 	pW3XGlobalClass = GameDll + 0xAB4F80;
 	pPrintText2 = GameDll + 0x2F69A0;
