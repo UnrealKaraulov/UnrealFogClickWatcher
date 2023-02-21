@@ -24,7 +24,7 @@ __Не использует модификацию памяти Game.dll или 
 **Установка античита:**
 
 ```
-1. Перемиестить UnrealFogClickWatcher.mix в папку с Warcraft 3
+1. Переместить UnrealFogClickWatcher.mix в папку с Warcraft 3
 
 2. Переместить UnrealFogClickWatcher.ini в папку с Warcraft 3
 
