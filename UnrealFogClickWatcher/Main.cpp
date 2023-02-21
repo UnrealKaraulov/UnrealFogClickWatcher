@@ -1100,7 +1100,7 @@ int GetSelectedUnit(int slot)
 				int unitaddr = unit1;
 				if (unitaddr > 0)
 				{
-					if (IsNotBadUnit(unitaddr) && (unitcount || unitcount2)/*&& IsUnitSelected(unitaddr, PlayerData1)*/)
+					if (IsNotBadUnit(unitaddr) && (unitcount || unitcount2) && IsUnitSelected(unitaddr, PlayerData1))
 					{
 						return unitaddr;
 					}
