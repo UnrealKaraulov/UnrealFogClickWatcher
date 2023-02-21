@@ -1100,7 +1100,7 @@ int GetSelectedUnit(int slot)
 				int unitaddr = unit1;
 				if (unitaddr > 0)
 				{
-					if (IsNotBadUnit(unitaddr) /*&& unitcount*/ && IsUnitSelected(unitaddr, PlayerData1))
+					if (IsNotBadUnit(unitaddr) && (unitcount || unitcount2)/*&& IsUnitSelected(unitaddr, PlayerData1)*/)
 					{
 						return unitaddr;
 					}
@@ -2425,6 +2425,10 @@ void UpdateFogHelper()
 int PlayerSelectedItems[MAX_PLAYERS];
 
 int LatestVisibledUnits[MAX_PLAYERS];
+int LatestSelectedUnits[MAX_PLAYERS];
+int PrevSelectedUnits[MAX_PLAYERS];
+
+int PossibleStrike[MAX_PLAYERS] = { 0 };
 
 void SearchPlayersFogSelect()
 {
@@ -2446,9 +2450,12 @@ void SearchPlayersFogSelect()
 			continue;
 
 		int selectedunit = GetSelectedUnit(i);
-
 		if (selectedunit <= 0)
 			continue;
+
+		if (LatestSelectedUnits[i] != PrevSelectedUnits[i])
+			PrevSelectedUnits[i] = LatestSelectedUnits[i];
+		LatestSelectedUnits[i] = selectedunit;
 
 		if (!IsNotBadUnit(selectedunit))
 			continue;
@@ -2566,13 +2573,28 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-
+								BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
 									GetObjectName(selectedunit),
-									tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i] ? "POSSIBLE" : "DETECTED");
+									possible ? "POSSIBLE" : "DETECTED");
+
+								if (PrevSelectedUnits[i] != LatestVisibledUnits[i] &&
+									LatestSelectedUnits[i] != LatestVisibledUnits[i])
+								{
+									LatestVisibledUnits[i] = -1;
+								}
+
+								if (possible)
+								{
+									PossibleStrike[i]++;
+								}
+								else
+								{
+									PossibleStrike[i] = 0;
+								}
 
 								if (DebugState)
 								{
@@ -2588,12 +2610,31 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
+								BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
+								
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v13]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
 									GetObjectName(selectedunit),
-									tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i] ? "POSSIBLE" : "DETECTED");
+									possible ? "POSSIBLE" : "DETECTED");
+
+
+								if (PrevSelectedUnits[i] != LatestVisibledUnits[i] &&
+									LatestSelectedUnits[i] != LatestVisibledUnits[i])
+								{
+									LatestVisibledUnits[i] = -1;
+								}
+
+								if (possible)
+								{
+									PossibleStrike[i]++;
+								}
+								else
+								{
+									PossibleStrike[i] = 0;
+								}
+
 								if (DebugState)
 								{
 									char detectUnitAndPlayer[64];
@@ -2604,7 +2645,9 @@ void SearchPlayersFogSelect()
 							tmpunitselected->SelectCount = -1;
 
 							ActionTime = tmpunitselected->LatestTime;
-							DisplayText(PrintBuffer, 6.0f);
+
+							if (PossibleStrike[i] <= 2)
+								DisplayText(PrintBuffer, 6.0f);
 						}
 					}
 					continue;
