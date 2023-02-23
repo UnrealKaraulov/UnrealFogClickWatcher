@@ -131,6 +131,8 @@ BOOL DebugLog = FALSE;
 
 BOOL DebugState = FALSE;
 
+BOOL DisplayFalse = TRUE;
+
 int DetectQuality = 2;
 
 BOOL ExceptionFilterHooked = FALSE;
@@ -2494,7 +2496,25 @@ void SearchPlayersFogSelect()
 							possible ? "FALSE" : "POSSIBLE");
 
 						ActionTime = ClickCount[n].LatestTime;
-						DisplayText(PrintBuffer, 6.0f);
+						if (possible && !DisplayFalse)
+						{
+							int seconds = (int)(ActionTime / 1000) % 60;
+							int minutes = (int)((ActionTime / (1000 * 60)) % 60);
+							int hours = (int)((ActionTime / (1000 * 60 * 60)) % 24);
+
+							char timeBuff[64];
+							sprintf_s(timeBuff, "[%.2d:%.2d:%.2d] : ", hours, minutes, seconds);
+
+							std::string outLineStr = (timeBuff + std::string(PrintBuffer));
+							if (LogEnabled)
+							{
+								WatcherLog((outLineStr + "\n").c_str());
+							}
+						}
+						else
+						{
+							DisplayText(PrintBuffer, 6.0f);
+						}
 						ClickCount[n].SelectCount = -1;
 
 						LatestVisibledUnits2[i] = ClickCount[n].UnitAddr;
@@ -2632,6 +2652,8 @@ void SearchPlayersFogSelect()
 					{
 						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 120 * DetectQuality)
 						{
+							BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
+
 							if (!IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer))
 							{
 								if (MinimapPingFogClick)
@@ -2639,7 +2661,6 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v14]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
@@ -2676,8 +2697,7 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
-
+							
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v14]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
@@ -2713,7 +2733,27 @@ void SearchPlayersFogSelect()
 							ActionTime = tmpunitselected->LatestTime;
 
 							if (PossibleStrike[i] <= 1)
-								DisplayText(PrintBuffer, 6.0f);
+							{
+								if (possible && !DisplayFalse)
+								{
+									int seconds = (int)(ActionTime / 1000) % 60;
+									int minutes = (int)((ActionTime / (1000 * 60)) % 60);
+									int hours = (int)((ActionTime / (1000 * 60 * 60)) % 24);
+
+									char timeBuff[64];
+									sprintf_s(timeBuff, "[%.2d:%.2d:%.2d] : ", hours, minutes, seconds);
+
+									std::string outLineStr = (timeBuff + std::string(PrintBuffer));
+									if (LogEnabled)
+									{
+										WatcherLog((outLineStr + "\n").c_str());
+									}
+								}
+								else
+								{
+									DisplayText(PrintBuffer, 6.0f);
+								}
+							}
 						}
 					}
 				}
@@ -2802,6 +2842,7 @@ void CreateFogClickWatcherConfig()
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", FALSE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DisplayFalse", TRUE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", FALSE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "Debug", FALSE);
 }
@@ -2921,6 +2962,7 @@ void LoadFogClickWatcherConfig()
 	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE);
 	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE);
 	DebugState = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", FALSE);
+	DisplayFalse = fogwatcherconf.ReadBool("FogClickWatcher", "DisplayFalse", TRUE);
 
 	WatcherLog("Config:LogEnabled->%s\n", LogEnabled ? "TRUE" : "FALSE");
 	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
