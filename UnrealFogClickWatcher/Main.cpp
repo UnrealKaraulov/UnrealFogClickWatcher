@@ -2439,6 +2439,7 @@ void UpdateFogHelper()
 int PlayerSelectedItems[MAX_PLAYERS];
 
 int LatestVisibledUnits[MAX_PLAYERS];
+int LatestVisibledUnits2[MAX_PLAYERS];
 int LatestSelectedUnits[MAX_PLAYERS];
 int PrevSelectedUnits[MAX_PLAYERS];
 
@@ -2472,6 +2473,38 @@ void SearchPlayersFogSelect()
 		int OwnedPlayerSlot = GetUnitOwnerSlot(selectedunit);
 		if (OwnedPlayerSlot < 0 || OwnedPlayerSlot > 15)
 			continue;
+
+
+
+		for (unsigned int n = 0; n < ClickCount.size(); n++)
+		{
+			if (ClickCount[n].PlayerNum == i)
+			{
+				if (ClickCount[n].SelectCount >= 0 && ClickCount[n].LatestTime != 0 && IsNotBadUnit(ClickCount[n].UnitAddr))
+				{
+					if (llabs(GetGameTime() - ClickCount[n].LatestTime) > 200 * DetectQuality)
+					{
+						BOOL possible = ClickCount[n].initialVisibled || selectedunit == LatestVisibledUnits[i];
+
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v14]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
+							GetPlayerColorString(Player(i)),
+							GetPlayerName(i, 0),
+							GetPlayerColorString(Player(OwnedPlayerSlot)),
+							GetObjectName(ClickCount[n].UnitAddr),
+							possible ? "FALSE" : "POSSIBLE");
+
+						ActionTime = ClickCount[n].LatestTime;
+						DisplayText(PrintBuffer, 6.0f);
+						ClickCount[n].SelectCount = -1;
+
+						LatestVisibledUnits2[i] = ClickCount[n].UnitAddr;
+
+						if (LatestVisibledUnits[i] == -1)
+							LatestVisibledUnits[i] = ClickCount[n].UnitAddr;
+					}
+				}
+			}
+		}
 
 		int hOwnerPlayer = Player(OwnedPlayerSlot);
 		if (hOwnerPlayer <= 0)
@@ -2572,7 +2605,10 @@ void SearchPlayersFogSelect()
 					tmpus.UnitAddr = selectedunit;
 					tmpus.LatestTime = GetGameTime();
 					tmpus.SelectCount = 0;
-					tmpus.initialVisibled = FALSE;
+					tmpus.initialVisibled = selectedunit == LatestVisibledUnits2[i];
+
+					LatestVisibledUnits2[i] = -1;
+
 					ClickCount.push_back(tmpus);
 					tmpunitselected = &ClickCount[ClickCount.size() - 1];
 
@@ -2734,30 +2770,6 @@ void SearchPlayersFogSelect()
 						ClickCount[n].SelectCount = -1;
 					}
 				}*/
-			}
-		}
-		else
-		{
-			for (unsigned int n = 0; n < ClickCount.size(); n++)
-			{
-				if (ClickCount[n].PlayerNum == i)
-				{
-					if (ClickCount[n].SelectCount >= 0 && ClickCount[n].LatestTime != 0 && IsNotBadUnit(ClickCount[n].UnitAddr))
-					{
-						BOOL possible = ClickCount[n].initialVisibled || selectedunit == LatestVisibledUnits[i];
-
-						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v14]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
-							GetPlayerColorString(Player(i)),
-							GetPlayerName(i, 0),
-							GetPlayerColorString(Player(OwnedPlayerSlot)),
-							GetObjectName(ClickCount[n].UnitAddr),
-							possible ? "FALSE" : "POSSIBLE");
-
-						ActionTime = ClickCount[n].LatestTime;
-						DisplayText(PrintBuffer, 6.0f);
-						ClickCount[n].SelectCount = -1;
-					}
-				}
 			}
 		}
 	}
