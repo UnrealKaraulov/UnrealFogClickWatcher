@@ -49,11 +49,11 @@ long long LastClickWatcher = 0;
 
 long long StartGameTime = 0;
 
-BOOL LogEnabled = FALSE;
+int LoggingType = 0;
 
 void WatcherLog(const char* format, ...)
 {
-	if (!LogEnabled)
+	if (LoggingType == -1)
 		return;
 	char buffer[1024];
 	va_list args;
@@ -68,8 +68,6 @@ void WatcherLog(const char* format, ...)
 
 void WatcherLogForce(const char* format, ...)
 {
-	if (!LogEnabled)
-		return;
 	char buffer[1024];
 	va_list args;
 	va_start(args, format);
@@ -189,7 +187,13 @@ unsigned int         PLAYER_COLOR_BROWN = 11;
 
 const char* GetPlayerColorString(int player)
 {
+	if (player <= 0)
+	{
+		return "|cffAAAAAA";
+	}
+
 	unsigned int c = GetPlayerColor(player);
+
 	if (c == PLAYER_COLOR_RED)
 		return "|cffFF0202";
 	else if (c == PLAYER_COLOR_BLUE)
@@ -214,14 +218,18 @@ const char* GetPlayerColorString(int player)
 		return "|cff0F6145";
 	else if (c == PLAYER_COLOR_BROWN)
 		return "|cff4D2903";
-	else
-		return "|cffFFFFFF";
-
+	
+	return "|cff4B4B4B";
 }
 
 unsigned int GetPlayerColorUINT(int player)
 {
 	unsigned int c = GetPlayerColor(player);
+	if (player <= 0)
+	{
+		return 0xffAAAAAA;
+	}
+
 	if (c == PLAYER_COLOR_RED)
 		return 0xffFF0202;
 	else if (c == PLAYER_COLOR_BLUE)
@@ -246,8 +254,7 @@ unsigned int GetPlayerColorUINT(int player)
 		return 0xff0F6145;
 	else if (c == PLAYER_COLOR_BROWN)
 		return 0xff4D2903;
-	else
-		return 0xffFFFFFF;
+	return 0xff4B4B4B;
 }
 
 const char* DefaultString = "DefaultString\0\xa..........................................................................................................";
@@ -276,8 +283,6 @@ void* GetGlobalPlayerData()
 	}
 	return 0;
 }
-
-
 
 int GetPlayerByNumber(int number)
 {
@@ -314,9 +319,7 @@ long long GetGameTime()
 
 BOOL PrintOrderName = FALSE;
 
-char convitostr[126];
-
-const char* ConvertIdToString(int id)
+std::string ConvertIdToString(int id)
 {
 	if (!PrintOrderName)
 	{
@@ -675,8 +678,8 @@ const char* ConvertIdToString(int id)
 		return "-dropitem-";
 	if (id >= 0xD0028 && id <= 0xd002d)
 		return "-inventory-";
-	_itoa_s(id, convitostr, 126, 16);
-	return convitostr;
+
+	return std::to_string(id);
 }
 
 
@@ -998,12 +1001,12 @@ void DisplayText(const std::string& szText, float fDuration)
 	std::string outLineStr = (timeBuff + szText);
 	const char* outLinePointer = outLineStr.c_str();
 
-	if (LogEnabled)
+	if (LoggingType != -1)
 	{
 		WatcherLog((outLineStr + "\n").c_str());
 	}
 
-	if (!GameDll || !*(unsigned char**)pW3XGlobalClass)
+	if (!GameDll || !*(unsigned char**)pW3XGlobalClass || LoggingType == 0)
 		return;
 
 	__asm
@@ -1887,7 +1890,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-									ConvertIdToString(GetIssueOrderId),
+									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
@@ -1906,7 +1909,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-									ConvertIdToString(GetIssueOrderId),
+									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
@@ -1963,7 +1966,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-									ConvertIdToString(GetIssueOrderId),
+									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
@@ -1982,7 +1985,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-									ConvertIdToString(GetIssueOrderId),
+									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
@@ -2076,7 +2079,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
-										ConvertIdToString(GetIssuedOrderId),
+										ConvertIdToString(GetIssuedOrderId).c_str(),
 										IsItem ? "[item]" : "[unit]",
 										IsItem ? "|cFF4B4B4B" : GetPlayerColorString(Player(TargetSlot)),
 										GetObjectName(TargetAddr));
@@ -2095,7 +2098,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
-										ConvertIdToString(GetIssuedOrderId),
+										ConvertIdToString(GetIssuedOrderId).c_str(),
 										GetPlayerColorString(Player(TargetSlot)),
 										GetObjectName(TargetAddr));
 
@@ -2195,7 +2198,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(GetIssuedOrderId),
+											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(GetIssuedOrderId).c_str(),
 											GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 											GetObjectName(TargetAddr));
 
@@ -2215,7 +2218,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-											ConvertIdToString(GetIssuedOrderId),
+											ConvertIdToString(GetIssuedOrderId).c_str(),
 											GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 											GetObjectName(TargetAddr));
 
@@ -2241,7 +2244,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.01]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
 										GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 										GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
-										ConvertIdToString(GetIssuedOrderId),
+										ConvertIdToString(GetIssuedOrderId).c_str(),
 										"|cFF4B4B4B",
 										GetObjectName(TargetAddr));
 
@@ -2603,7 +2606,7 @@ void SearchPlayersFogSelect()
 							sprintf_s(timeBuff, "[%.2d:%.2d:%.2d] : ", hours, minutes, seconds);
 
 							std::string outLineStr = (timeBuff + std::string(PrintBuffer));
-							if (LogEnabled)
+							if (LoggingType != -1)
 							{
 								WatcherLog((outLineStr + "\n").c_str());
 							}
@@ -2819,7 +2822,7 @@ void SearchPlayersFogSelect()
 									sprintf_s(timeBuff, "[%.2d:%.2d:%.2d] : ", hours, minutes, seconds);
 
 									std::string outLineStr = (timeBuff + std::string(PrintBuffer));
-									if (LogEnabled)
+									if (LoggingType != -1)
 									{
 										WatcherLog((outLineStr + "\n").c_str());
 									}
@@ -2882,7 +2885,7 @@ void CreateFogClickWatcherConfig()
 		fclose(f);
 	}*/
 	CIniWriter fogwatcherconf(detectorConfigPath.c_str());
-	fogwatcherconf.WriteBool("FogClickWatcher", "LogEnabled", TRUE);
+	fogwatcherconf.WriteInt("FogClickWatcher", "LoggingType", 1);
 	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", TRUE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", TRUE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", TRUE);
@@ -2915,15 +2918,14 @@ void LoadFogClickWatcherConfig()
 	{
 		newcfg = true;
 		CreateFogClickWatcherConfig();
-		LogEnabled = TRUE;
 		WatcherLog("Create new config\n");
 	}
 
 	CIniReader fogwatcherconf(detectorConfigPath.c_str());
 
-	LogEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "LogEnabled", TRUE);
+	LoggingType = fogwatcherconf.ReadInt("FogClickWatcher", "LoggingType", 1);
 
-	if (LogEnabled)
+	if (LoggingType != -1)
 	{
 		WatcherLog("-------------------------------------------------------------------------------\n");
 		WatcherLog("-------------------------------------------------------------------------------\n");
@@ -3022,7 +3024,7 @@ void LoadFogClickWatcherConfig()
 	DisplayFalse = fogwatcherconf.ReadBool("FogClickWatcher", "DisplayFalse", TRUE);
 	ICCUP_DOTA_SUPPORT = fogwatcherconf.ReadBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", TRUE);
 
-	WatcherLog("Config:LogEnabled->%s\n", LogEnabled ? "TRUE" : "FALSE");
+	WatcherLog("Config:LoggingType->%i\n", LoggingType);
 	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
 	WatcherLog("Config:UnitDetectionMethod->%i\n", UnitDetectionMethod);
 	WatcherLog("Config:MeepoPoofID->%X\n", MeepoPoofID);
