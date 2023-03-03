@@ -3362,6 +3362,8 @@ unsigned char* war3exe = NULL;
 bool found1 = false;
 bool found2 = false;
 
+bool warn1 = false;
+
 //External Loader
 LRESULT CALLBACK Initialize(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -3371,12 +3373,14 @@ LRESULT CALLBACK Initialize(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (GetModuleHandleA("UnrealFogClickWatcher.mix"))
 		{
+			FirstUnload = TRUE;
 			MessageBoxA(0, "Antihack FogClickWatcher already loaded! Error!", "ERROR", 0);
 			return 0;
 		}
 
-		if (GetModuleHandleA("iccwc3.icc"))
+		if (!warn1 && GetModuleHandleA("iccwc3.icc"))
 		{
+			FirstUnload = TRUE;
 			HWND thwnd = FindWindow("Shell_TrayWnd", NULL);
 			if (thwnd)
 				SendMessage(thwnd, WM_COMMAND, (WPARAM)419, 0);

@@ -32,7 +32,7 @@ int main(void) {
 	system("pause");
 	// Uninstall the hook
 	std::cout << "WARNING! Press any key to close Warcraft III and FogClick launcher" << std::endl;
-	UnhookWindowsHookEx(hook);
 	system("pause");
+	UnhookWindowsHookEx(hook);
 	return 0;
 }
