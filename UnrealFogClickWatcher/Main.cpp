@@ -218,7 +218,7 @@ const char* GetPlayerColorString(int player)
 		return "|cff0F6145";
 	else if (c == PLAYER_COLOR_BROWN)
 		return "|cff4D2903";
-	
+
 	return "|cff4B4B4B";
 }
 
@@ -3259,7 +3259,7 @@ void InitializeFogClickWatcher()
 	if (GameDllVer == 6401)
 	{
 		Init126aVer();
-		hhookSysMsg = SetWindowsHookEx(WH_GETMESSAGE, HookCallWndProc, hGameDll, GetCurrentThreadId());
+		hhookSysMsg = SetWindowsHookExW(WH_GETMESSAGE, HookCallWndProc, hGameDll, GetCurrentThreadId());
 	}
 	else
 	{
@@ -3268,14 +3268,31 @@ void InitializeFogClickWatcher()
 	}
 }
 
-
+bool FogClickLoadSuccess = false;
+#ifdef LAUNCHER_MODE
+bool FirstUnload = false;
+#endif
 BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 {
 	if (r == DLL_PROCESS_ATTACH)
 	{
-		MainModule = hDLL;
-		MainThread = GetCurrentThreadId();
+#ifdef LAUNCHER_MODE
+		if (GetModuleHandleA("FogDetectLauncher.exe"))
+		{
+			return TRUE;
+		}
+#endif
+		if (!GetModuleHandleA("Game.dll"))
+		{
+			return FALSE;
+		}
 
+		MainModule = hDLL;
+#ifndef LAUNCHER_MODE
+		MainThread = GetCurrentThreadId();
+#else 
+		MainThread = NULL;
+#endif
 		char fullPath[1024];
 		GetModuleFileNameA(hDLL, fullPath, 1024);
 		detectorConfigPath = ".\\" + std::filesystem::path(fullPath).filename().string();
@@ -3285,18 +3302,115 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		logFileName = detectorConfigPath;
 		logFileName.pop_back(); logFileName.pop_back(); logFileName.pop_back();
 		logFileName += "log";
-
+#ifndef LAUNCHER_MODE
 		InitializeFogClickWatcher();
+#endif
+		FogClickLoadSuccess = true;
 	}
 	else if (r == DLL_PROCESS_DETACH)
 	{
-		if (GetCurrentThreadId() == MainThread)
+#ifdef LAUNCHER_MODE
+		//if (FirstUnload)
+		//{
+		//	FirstUnload = false;
+		//	return FALSE;
+		//}
+#endif
+		if (FogClickLoadSuccess)
 		{
-			TerminateProcess(GetCurrentProcess(), 0);
-			ExitProcess(0);
+			if (GetCurrentThreadId() == MainThread)
+			{
+				TerminateProcess(GetCurrentProcess(), 0);
+				ExitProcess(0);
+			}
+			UnhookWindowsHookEx(hhookSysMsg);
 		}
-		UnhookWindowsHookEx(hhookSysMsg);
 	}
 
 	return TRUE;
 }
+
+#ifdef LAUNCHER_MODE
+typedef long NTSTATUS;
+
+#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+#define ThreadQuerySetWin32StartAddress 9
+
+typedef NTSTATUS(WINAPI* NTQUERYINFOMATIONTHREAD)(HANDLE, LONG, PVOID, ULONG, PULONG);
+
+DWORD WINAPI GetThreadStartAddress(__in HANDLE hThread) // by Echo
+{
+	NTSTATUS ntStatus;
+	DWORD dwThreadStartAddr = 0;
+	HANDLE hPeusdoCurrentProcess, hNewThreadHandle;
+	NTQUERYINFOMATIONTHREAD NtQueryInformationThread;
+
+	if ((NtQueryInformationThread = (NTQUERYINFOMATIONTHREAD)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), _T("NtQueryInformationThread")))) {
+		hPeusdoCurrentProcess = GetCurrentProcess();
+		if (DuplicateHandle(hPeusdoCurrentProcess, hThread, hPeusdoCurrentProcess, &hNewThreadHandle, THREAD_QUERY_INFORMATION, FALSE, 0)) {
+			ntStatus = NtQueryInformationThread(hNewThreadHandle, ThreadQuerySetWin32StartAddress, &dwThreadStartAddr, sizeof(DWORD), NULL);
+			CloseHandle(hNewThreadHandle);
+			if (ntStatus != STATUS_SUCCESS) return 0;
+		}
+	}
+
+	return dwThreadStartAddr;
+}
+
+unsigned char* war3exe = NULL;
+
+bool found1 = false;
+bool found2 = false;
+
+//External Loader
+LRESULT CALLBACK Initialize(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (FirstUnload)
+		return 0;
+	if (!GameDll)
+	{
+		if (GetModuleHandleA("UnrealFogClickWatcher.mix"))
+		{
+			MessageBoxA(0, "Antihack FogClickWatcher already loaded! Error!", "ERROR", 0);
+			return 0;
+		}
+
+		if (GetModuleHandleA("iccwc3.icc"))
+		{
+			HWND thwnd = FindWindow("Shell_TrayWnd", NULL);
+			if (thwnd)
+				SendMessage(thwnd, WM_COMMAND, (WPARAM)419, 0);
+			MessageBoxA(0, "This method is not supported for iCCup.\nJust need use UnrealFogClickWatcher.mix!", "ERROR! ERROR!", 0);
+		}
+
+		HMODULE hGameDll = GetModuleHandle("Game.dll");
+		if (!hGameDll)
+		{
+			return CallNextHookEx(NULL, nCode, wParam, lParam);
+		}
+
+		GameDll = (unsigned char*)hGameDll;
+	}
+	else
+	{
+		if (!war3exe)
+		{
+			war3exe = (unsigned char*)GetModuleHandle("war3.exe");
+		}
+		else
+		{
+			unsigned char* threadStart = (unsigned char*)GetThreadStartAddress(GetCurrentThread());
+			if (!MainThread && threadStart > war3exe && threadStart < war3exe + 0x100000)
+			{
+				FirstUnload = true;
+				MainThread = GetCurrentThreadId();
+				InitializeFogClickWatcher();
+				CallNextHookEx(NULL, nCode, wParam, lParam);
+				return 0;
+			}
+		}
+	}
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+#endif

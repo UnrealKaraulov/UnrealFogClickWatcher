@@ -1,0 +1,3 @@
+LIBRARY   FOGDETECTOR
+EXPORTS
+	Initialize @1

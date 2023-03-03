@@ -16,3 +16,6 @@
 *.pdb
 *.obj
 *.iobj
+*.lib
+*.exp
+*.ipdb

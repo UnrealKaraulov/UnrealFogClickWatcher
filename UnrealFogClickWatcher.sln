@@ -5,6 +5,10 @@ VisualStudioVersion = 17.4.33403.182
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealFogClickWatcher", "UnrealFogClickWatcher\UnrealFogClickWatcher.vcxproj", "{C53DBD7B-E7E7-4A1F-8A81-10F414D2C77E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Launcher", "Launcher\Launcher.vcxproj", "{9DC68F94-4A08-4798-9366-49755C67B655}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealFogClickWatcherInj", "UnrealFogClickWatcher\UnrealFogClickWatcherInj.vcxproj", "{4209A349-8988-42D1-B6D7-A8CE54E6A96C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -15,6 +19,14 @@ Global
 		{C53DBD7B-E7E7-4A1F-8A81-10F414D2C77E}.Debug|Win32.Build.0 = Debug|Win32
 		{C53DBD7B-E7E7-4A1F-8A81-10F414D2C77E}.Release|Win32.ActiveCfg = Release|Win32
 		{C53DBD7B-E7E7-4A1F-8A81-10F414D2C77E}.Release|Win32.Build.0 = Release|Win32
+		{9DC68F94-4A08-4798-9366-49755C67B655}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9DC68F94-4A08-4798-9366-49755C67B655}.Debug|Win32.Build.0 = Debug|Win32
+		{9DC68F94-4A08-4798-9366-49755C67B655}.Release|Win32.ActiveCfg = Release|Win32
+		{9DC68F94-4A08-4798-9366-49755C67B655}.Release|Win32.Build.0 = Release|Win32
+		{4209A349-8988-42D1-B6D7-A8CE54E6A96C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4209A349-8988-42D1-B6D7-A8CE54E6A96C}.Debug|Win32.Build.0 = Debug|Win32
+		{4209A349-8988-42D1-B6D7-A8CE54E6A96C}.Release|Win32.ActiveCfg = Release|Win32
+		{4209A349-8988-42D1-B6D7-A8CE54E6A96C}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
