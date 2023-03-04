@@ -38,7 +38,7 @@ __Не использует модификацию памяти Game.dll или 
 которые не разрешают файлы в папке с игрой**
 
 ```
-1. Запустить FogLauncher.exe
+1. Запустить FogDetectLauncher.exe
 
 2. Запустить игру
 ```
@@ -52,5 +52,5 @@ First install method:
 
 Second, universal install method:
 
-1. Run FogLauncher.exe
+1. Run FogDetectLauncher.exe
 2. Run Warcraft III
