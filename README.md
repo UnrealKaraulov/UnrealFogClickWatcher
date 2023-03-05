@@ -35,7 +35,7 @@ __Не использует модификацию памяти Game.dll или 
 
 
 **Запуск античита на платформах
-которые не разрешают файлы в папке с игрой**
+которые не разрешают файлы в папке с игрой (RGC к примеру)**
 
 ```
 1. Запустить FogDetectLauncher.exe
@@ -50,7 +50,7 @@ First install method:
 1. Move .mix and .ini file to Warcraft III folder
 2. Restart game.
 
-Second, universal install method:
+Second, universal install method(RGC, etc):
 
 1. Run FogDetectLauncher.exe
 2. Run Warcraft III
