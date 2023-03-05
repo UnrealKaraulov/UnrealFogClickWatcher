@@ -32,3 +32,25 @@ __Не использует модификацию памяти Game.dll или 
 
 4. Не рекомендуется изменять настройки по умолчанию!!
 ```
+
+
+**Запуск античита на платформах
+которые не разрешают файлы в папке с игрой**
+
+```
+1. Запустить FogDetectLauncher.exe
+
+2. Запустить игру
+```
+
+FOR NON RUSSIAN USERS:
+
+First install method:
+
+1. Move .mix and .ini file to Warcraft III folder
+2. Restart game.
+
+Second, universal install method:
+
+1. Run FogDetectLauncher.exe
+2. Run Warcraft III
