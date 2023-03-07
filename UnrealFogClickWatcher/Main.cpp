@@ -139,6 +139,8 @@ int DetectQuality = 2;
 
 BOOL ExceptionFilterHooked = FALSE;
 
+float DefaultCircleScale = 72.0f;
+
 struct UnitSelectedStruct
 {
 	int PlayerNum;
@@ -868,6 +870,13 @@ __declspec(naked) int __fastcall GetSomeAddr(UINT a1, UINT a2)
 	}
 }
 
+
+//
+//LPVOID ConvertHandle(unsigned int handle) {
+//	return handle > 0x100000 ? *(LPVOID*)(*(int*)(*(int*)(*(int*)pGlobalPlayerData + 0x1c) + 0x19c) + handle * 0xc - 0x2fffff * 4) : NULL;
+//}
+
+
 BOOL __stdcall IsNotBadUnit(int _unitaddr)
 {
 	if (_unitaddr > 0)
@@ -1221,7 +1230,34 @@ int GetSelectedUnit(int slot)
 //sub_6F32C880 126a
 //sub_6F327020 127a
 typedef int(__fastcall* p_GetTypeInfo)(int unit_item_code, int unused);
-p_GetTypeInfo GetTypeInfo = NULL;
+p_GetTypeInfo GetTypeIdInfoAddr = NULL;
+
+typedef float(__fastcall* pGetMiscDataFloat)(const char* section, const char* key, unsigned int addr);
+pGetMiscDataFloat GetMiscDataFloat = NULL;
+
+
+
+int GetObjectTypeId(int unit_or_item_addr)
+{
+	return *(int*)(unit_or_item_addr + 0x30);
+}
+
+float GetSafeObjectSelectionCircle(int unit_addr)
+{
+	float retval = 0.0f;
+	if (unit_addr > 0)
+	{
+		int unitData = GetTypeIdInfoAddr(GetObjectTypeId(unit_addr), 0);
+		if (unitData > 0)
+		{
+			retval = (*(float*)(unitData + 0x54) * DefaultCircleScale) / 4.8f;
+		}
+	}
+
+	if (retval < 16.0f)
+		return 16.0f;
+	return retval;
+}
 
 //sub_6F2F8F90 126a
 //sub_6F34F730 127a
@@ -1233,7 +1269,7 @@ const char* GetObjectNameByID(int clid)
 {
 	if (clid > 0)
 	{
-		int v3 = GetTypeInfo(clid, 0);
+		int v3 = GetTypeIdInfoAddr(clid, 0);
 		int v4, v5;
 		if (v3 && (v4 = *(int*)(v3 + 40)) != 0)
 		{
@@ -1531,9 +1567,9 @@ void GetUnitLocation3D(int unitaddr, float* x, float* y, float* z)
 	}
 	else
 	{
-		*x = 0.0;
-		*y = 0.0;
-		*z = 0.0;
+		*x = 0.0f;
+		*y = 0.0f;
+		*z = 0.0f;
 	}
 }
 
@@ -1547,26 +1583,26 @@ void GetItemLocation3D(int itemaddr, float* x, float* y, float* z)
 		{
 			*x = *(float*)(iteminfo + 0x88);
 			*y = *(float*)(iteminfo + 0x8C);
-			*z = *(float*)(iteminfo + 0x8C);
+			*z = *(float*)(iteminfo + 0x90);
 		}
 		else
 		{
-			*x = 0.0;
-			*y = 0.0;
-			*z = 0.0;
+			*x = 0.0f;
+			*y = 0.0f;
+			*z = 0.0f;
 		}
 	}
 	else
 	{
-		*x = 0.0;
-		*y = 0.0;
-		*z = 0.0;
+		*x = 0.0f;
+		*y = 0.0f;
+		*z = 0.0f;
 	}
 }
 
 
 
-void GetUnitLocation2D(int unitaddr, float* x, float* y)
+/*void GetUnitLocation2D(int unitaddr, float* x, float* y)
 {
 	if (unitaddr)
 	{
@@ -1602,13 +1638,22 @@ void GetItemLocation2D(int itemaddr, float* x, float* y)
 		*x = 0.0;
 		*y = 0.0;
 	}
-}
+}*/
 
 
-float Distance(float x1, float y1, float x2, float y2)
+float Distance3D(float x1, float y1, float z1, float x2, float y2, float z2)
 {
-	return (float)sqrt(((double)x2 - (double)x1) * ((double)x2 - (double)x1) + ((double)y2 - (double)y1) * ((double)y2 - (double)y1));
+	double d[] = { abs((double)x1 - (double)x2), abs((double)y1 - (double)y2), abs((double)z1 - (double)z2) };
+	if (d[0] < d[1]) std::swap(d[0], d[1]);
+	if (d[0] < d[2]) std::swap(d[0], d[2]);
+	return (float)(d[0] * sqrt(1.0 + d[1] / d[0] + d[2] / d[0]));
 }
+
+float Distance2D(float x1, float y1, float x2, float y2)
+{
+	return Distance3D(x1,y1,1.0f,x2,y2, 1.0f);
+}
+
 
 float pingduration = 1.5;
 
@@ -1635,9 +1680,9 @@ int GetItemByXY(float x, float y, int player)
 			{
 				if (IsNotBadItem(itemsarray[i]))
 				{
-					float itemx = 0.0f, itemy = 0.0f;
-					GetItemLocation2D(itemsarray[i], &itemx, &itemy);
-					if (Distance(itemx, itemy, x, y) < 19)
+					float itemx = 0.0f, itemy = 0.0f, itemz = 0.0f;
+					GetItemLocation3D(itemsarray[i], &itemx, &itemy, &itemz);
+					if (Distance2D(itemx, itemy, x, y) < GetSafeObjectSelectionCircle(itemsarray[i]))
 						return itemsarray[i];
 				}
 			}
@@ -1649,9 +1694,9 @@ int GetItemByXY(float x, float y, int player)
 
 BOOL ImpossibleClick = FALSE;
 
-int GetUnitByXY(float x, float y, int player, BOOL onlyunits = FALSE)
+int GetUnitByXY(float x, float y, int playerid, BOOL onlyunits = FALSE)
 {
-	if (player == GetLocalPlayerNumber() && !DetectLocalPlayer)
+	if (!DetectLocalPlayer && playerid == GetLocalPlayerNumber())
 		return 0;
 
 	FillUnitCountAndUnitArray();
@@ -1668,41 +1713,55 @@ int GetUnitByXY(float x, float y, int player, BOOL onlyunits = FALSE)
 
 			if (IsNotBadUnit(CurrentUnit))
 			{
-				bool IsValidTowerDetect = (DetectImpossibleClicks && IsDetectedTower(CurrentUnit));
-				if (IsHero(CurrentUnit) || IsValidTowerDetect || (!DetectRightClickOnlyHeroes && !IsUnitTower(CurrentUnit)))
+				int unitowner = GetUnitOwnerSlot(CurrentUnit);
+
+				float selectionCircle = GetSafeObjectSelectionCircle(CurrentUnit);
+
+				if (playerid == unitowner)
+					continue;
+				bool IsValidTowerDetect = false;
+				if (!IsHero(CurrentUnit))
 				{
-					if (player != GetUnitOwnerSlot(CurrentUnit))
+					IsValidTowerDetect = (DetectImpossibleClicks && IsDetectedTower(CurrentUnit));
+					if (!IsValidTowerDetect)
 					{
-						int hPlayerFinder = Player(player);
-						int hPlayerOwner = Player(GetUnitOwnerSlot(CurrentUnit));
-
-						if (hPlayerFinder && hPlayerOwner)
+						if (!(!DetectRightClickOnlyHeroes && !IsUnitTower(CurrentUnit)))
 						{
-							if (IsValidTowerDetect || IsPlayerEnemy(hPlayerFinder, hPlayerOwner))
+							continue;
+						}
+					}
+				}
+				if (playerid != unitowner)
+				{
+					int hPlayerFinder = Player(playerid);
+					int hPlayerOwner = Player(unitowner);
+
+					if (hPlayerFinder && hPlayerOwner)
+					{
+						if (IsValidTowerDetect || IsPlayerEnemy(hPlayerFinder, hPlayerOwner))
+						{
+							ImpossibleClick = FALSE;
+							float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
+							GetUnitLocation3D(CurrentUnit, &unitx, &unity, &unitz);
+
+							if (IsValidTowerDetect)
 							{
-								ImpossibleClick = FALSE;
-								float unitx = 0.0f, unity = 0.0f;
-								GetUnitLocation2D(CurrentUnit, &unitx, &unity);
-
-								if (IsValidTowerDetect)
+								if (Distance2D(unitx, unity, x, y) < selectionCircle && Distance2D(unitx, unity, x, y) > 0.1)
 								{
-									if (Distance(unitx, unity, x, y) < 22 && Distance(unitx, unity, x, y) > 0.1)
-									{
-										ImpossibleClick = TRUE;
-										return CurrentUnit;
-									}
-								}
-
-								if (IsDetectedTower(CurrentUnit))
-								{
-									if (Distance(unitx, unity, x, y) <= 1)
-										continue;
-								}
-
-								if (Distance(unitx, unity, x, y) < 19)
-								{
+									ImpossibleClick = TRUE;
 									return CurrentUnit;
 								}
+							}
+
+							if (IsDetectedTower(CurrentUnit))
+							{
+								if (Distance2D(unitx, unity, x, y) <= 0.1)
+									continue;
+							}
+
+							if (Distance2D(unitx, unity, x, y) < selectionCircle)
+							{
+								return CurrentUnit;
 							}
 						}
 					}
@@ -1714,7 +1773,7 @@ int GetUnitByXY(float x, float y, int player, BOOL onlyunits = FALSE)
 	{
 		return 0;
 	}
-	return GetItemByXY(x, y, player);
+	return GetItemByXY(x, y, playerid);
 }
 
 int LastEventID, LastSkillID, LastCasterID;
@@ -1804,7 +1863,7 @@ void ShiftLeftAndAddNewActionScanForBot(int PlayerID, PlayerEvent NewPlayerEvent
 									//	PlayerMeepoDetect[ PlayerID ] = TRUE;
 									LatestAbilSpell = CurTickCount;
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use MeepoKey!!\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use MeepoKey!!\0",
 										GetPlayerColorString(PlayerID),
 										GetPlayerName(PlayerID, 0));
 
@@ -1909,8 +1968,8 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 
 						if (!needcontinue)
 						{
-							float unitx = 0.0f, unity = 0.0f;
-							GetUnitLocation2D(TargetAddr, &unitx, &unity);
+							float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
+							GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
 							if (IsFoggedToPlayerMy(&unitx, &unity, Player(GetUnitOwnerSlot(CasterAddr))))
 							{
 								LatestAbilSpell = CurTickCount;
@@ -1920,7 +1979,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
@@ -1940,7 +1999,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
@@ -1987,8 +2046,8 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 					{
 						if (GetPlayerController(Player(GetUnitOwnerSlot(CasterAddr))) == 0 && GetPlayerSlotState(Player(GetUnitOwnerSlot(CasterAddr))) == 1)
 						{
-							float unitx = 0.0f, unity = 0.0f;
-							GetUnitLocation2D(TargetAddr, &unitx, &unity);
+							float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
+							GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
 							if (IsFoggedToPlayerMy(&unitx, &unity, Player(GetUnitOwnerSlot(CasterAddr))))
 							{
 								LatestAbilSpell = CurTickCount;
@@ -1998,7 +2057,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
@@ -2018,7 +2077,7 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
 									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
@@ -2094,15 +2153,15 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 
 							if (!needcontinue)
 							{
-								float unitx = 0.0f, unity = 0.0f;
+								float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
 
 								if (IsItem)
 								{
-									GetItemLocation2D(TargetAddr, &unitx, &unity);
+									GetItemLocation3D(TargetAddr, &unitx, &unity, &unitz);
 								}
 								else
 								{
-									GetUnitLocation2D(TargetAddr, &unitx, &unity);
+									GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
 								}
 
 								if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
@@ -2113,7 +2172,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 										unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2133,7 +2192,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 										unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2156,7 +2215,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 												PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 											}
 											LatestAbilSpell = CurTickCount;
-											sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r try to destroy item %s%s|r|r\0",
+											sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r try to destroy item %s%s|r|r\0",
 												GetPlayerColorString(Player(CasterSlot)),
 												GetPlayerName(CasterSlot, 0),
 												GetPlayerColorString(Player(TargetSlot)),
@@ -2184,7 +2243,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 
 			float x = GetOrderPointX;
 			float y = GetOrderPointY;
-			float unitx = 0.0f, unity = 0.0f;
+			float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
 			if (CasterAddr > 0 && GetOrderPointX != 0.0f && GetOrderPointY != 0.0f)
 			{
 				int CasterSlot = GetUnitOwnerSlot(CasterAddr);
@@ -2220,7 +2279,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 
 								if (!needcontinue)
 								{
-									GetUnitLocation2D(TargetAddr, &unitx, &unity);
+									GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
 									if (DetectImpossibleClicks && IsDetectedTower(TargetAddr))
 									{
 										DetectionImpossibleClick = TRUE;
@@ -2235,7 +2294,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
 
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2256,7 +2315,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
 
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 											ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2271,8 +2330,8 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 							}
 							else if (DetectPointClicks && TargetAddr > 0 && IsNotBadItem(TargetAddr) && !(GetIssuedOrderId >= 0xD0022 && GetIssuedOrderId <= 0xD0028))
 							{
-								float xunitx = 0.0f, xunity = 0.0f;
-								GetItemLocation2D(TargetAddr, &xunitx, &xunity);
+								float xunitx = 0.0f, xunity = 0.0f, xunitz = 0.0f;
+								GetItemLocation3D(TargetAddr, &xunitx, &xunity, &xunitz);
 								if (IsFoggedToPlayerMy(&xunitx, &xunity, Player(GetUnitOwnerSlot(CasterAddr))))
 								{
 									LatestAbilSpell = CurTickCount;
@@ -2283,7 +2342,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									}
 
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
 										GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 										GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2305,7 +2364,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 				{
 					LatestAbilSpell = CurTickCount;
 
-					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r activate GuAI Maphack!!\0",
+					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r activate GuAI Maphack!!\0",
 						GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 						GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0));
 
@@ -2497,7 +2556,7 @@ void UpdateFogHelper()
 		LatestFogCheck = CurTickCount;
 		for (int n = 0; n < MAX_PLAYERS; n++)
 		{
-			if (GetLocalPlayerNumber() == n && !DetectLocalPlayer)
+			if (!DetectLocalPlayer && GetLocalPlayerNumber() == n)
 				continue;
 
 			if (!Player(n))
@@ -2517,9 +2576,9 @@ void UpdateFogHelper()
 					{
 						if (IsHero(CurrentUnit) || !DetectRightClickOnlyHeroes)
 						{
-							float unitx, unity;
+							float unitx, unity, unitz;
 
-							GetUnitLocation2D(CurrentUnit, &unitx, &unity);
+							GetUnitLocation3D(CurrentUnit, &unitx, &unity, &unitz);
 
 							BOOL FoundUnit = FALSE;
 							for (unsigned int m = 0; m < FogHelperList.size(); m++)
@@ -2582,7 +2641,7 @@ void SearchPlayersFogSelect()
 
 	for (int i = 0; i < MAX_PLAYERS; i++)
 	{
-		if (GetLocalPlayerNumber() == i && !DetectLocalPlayer)
+		if (!DetectLocalPlayer && GetLocalPlayerNumber() == i)
 			continue;
 
 		int hCurrentPlayer = Player(i);
@@ -2594,27 +2653,48 @@ void SearchPlayersFogSelect()
 
 		int selectedunit = GetSelectedUnit(i);
 
-		//if (IsKeyPressed('X'))
-		//{
-		//	int plr = GetPlayerByNumber(i);
-		//	if (plr > 0)
-		//	{
-		//		int PlayerData1 = *(int*)(plr + 0x34);
-		//		if (PlayerData1 > 0)
-		//		{
-		//			int unit1 = *(int*)(PlayerData1 + 0x1E0);
-		//			int unit2 = *(int*)(PlayerData1 + 0x1A4);
-		//			int unitcount = *(int*)(PlayerData1 + 0x10);
-		//			int unitcount2 = *(int*)(PlayerData1 + 0x1D4);
+		/*	if (IsKeyPressed('X'))
+			{
+				int plr = GetPlayerByNumber(i);
+				if (plr > 0)
+				{
+					int PlayerData1 = *(int*)(plr + 0x34);
+					if (PlayerData1 > 0)
+					{
+						int unit1 = *(int*)(PlayerData1 + 0x1E0);
+						int unit2 = *(int*)(PlayerData1 + 0x1A4);
+						int unitcount = *(int*)(PlayerData1 + 0x10);
+						int unitcount2 = *(int*)(PlayerData1 + 0x1D4);
 
-		//			char debug[256];
-		//			sprintf_s(debug, "Name:[%s] id=%i poffs=%X pdata=%X U1:%X U22: %X & %i=%i\n", GetPlayerName(i, 0), i, plr, PlayerData1, unit1
-		//				, unit2, unitcount, unitcount2);
-		//			DisplayText(debug, 20.0f);
-		//		}
-		//	}
-		//}
+						float scale = 1.0f;
+						int unitData = 0;
 
+						if (selectedunit)
+						{
+							unitData = GetTypeIdInfoAddr(GetObjectTypeId(selectedunit), 0);
+							if (unitData > 0)
+							{
+								scale = *(float*)(unitData + 0x54) * 50.0;
+							}
+						}
+
+						int somedata = 0;
+						int somedata2 = 0;
+
+						if (selectedunit)
+						{
+							somedata = GetSomeAddr(*(unsigned int*)(selectedunit + 0xA0), *(unsigned int*)(selectedunit + 0xA4));
+							somedata2 = GetSomeAddr(*(unsigned int*)(selectedunit + 0xC0), *(unsigned int*)(selectedunit + 0xC4));
+						}
+
+						char debug[256];
+						sprintf_s(debug, "Name:[%s] id=%i poffs=%X pdata=%X U1:%X U22: %X & %i=%i DA:%X SC:%f SD:%X/%X\n", GetPlayerName(i, 0), i, plr, PlayerData1, unit1
+							, unit2, unitcount, unitcount2, unitData, scale, somedata, somedata2);
+						DisplayText(debug, 20.0f);
+					}
+				}
+			}
+	*/
 
 		if (selectedunit <= 0)
 			continue;
@@ -2636,7 +2716,7 @@ void SearchPlayersFogSelect()
 					{
 						BOOL possible = ClickCount[n].initialVisibled || selectedunit == LatestVisibledUnits[i];
 
-						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
 							GetPlayerColorString(Player(i)),
 							GetPlayerName(i, 0),
 							GetPlayerColorString(Player(OwnedPlayerSlot)),
@@ -2677,19 +2757,12 @@ void SearchPlayersFogSelect()
 		if (selectedunit == LatestVisibledUnits2[i])
 			continue;
 
-		if (llabs(GetGameTime() - LatestVisibleUnitTime) > 10000)
-		{
-			int tmpLatestVisUnit = LatestVisibledUnits[i];
-			LatestVisibledUnits[i] = -1;
-			if (selectedunit == tmpLatestVisUnit)
-				continue;
-		}
-
 		// Если это последний новый невидимый юнит то пропустить.
 		if (selectedunit == LatestVisibledUnits[i])
 			continue;
 
 		LatestVisibledUnits2[i] = -1;
+		LatestVisibledUnits[i] = -1;
 
 		int hOwnerPlayer = Player(OwnedPlayerSlot);
 		if (hOwnerPlayer <= 0)
@@ -2704,8 +2777,8 @@ void SearchPlayersFogSelect()
 				PrevSelectedUnits[i] = LatestSelectedUnits[i];
 			LatestSelectedUnits[i] = selectedunit;
 
-			float unitx = 0.0f, unity = 0.0f;
-			GetUnitLocation2D(selectedunit, &unitx, &unity);
+			float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
+			GetUnitLocation3D(selectedunit, &unitx, &unity, &unitz);
 
 
 			if (IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer) || !IsUnitVisibleToPlayer((unsigned char*)selectedunit, (unsigned char*)GetPlayerByNumber(i)))
@@ -2801,7 +2874,7 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
@@ -2838,7 +2911,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v15.3]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
@@ -3136,11 +3209,11 @@ void ProcessFogWatcher()
 			LoadFogClickWatcherConfig();
 
 			ActionTime = GetCurrentLocalTime();
-			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v15.3 for Warcraft 1.26a by UnrealKaraulov......");
+			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v16.0 for Warcraft 1.26a by UnrealKaraulov......");
 
 			WatcherLog("Watch fog clicks for Game id: %i. Map name: %s.\n", GameID++, MapFileName);
 
-			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v15.3 by UnrealKaraulov][1.26a]: Initialized.|r\0");
+			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v16.0 by UnrealKaraulov][1.26a]: Initialized.|r\0");
 			ActionTime = 0;
 			DisplayText(PrintBuffer, 15.0f);
 			if (IsReplayMode())
@@ -3149,6 +3222,13 @@ void ProcessFogWatcher()
 				sprintf_s(PrintBuffer, 2048, "%s", "|c0010FF10[REPLAY MODE] |c00FF2000Info|r: |c00AAAAAADisabled ClearTextMessages funciton and increse DisplayText time!|r\0");
 				DisplayText(PrintBuffer, 15.0f);
 			}
+
+			DefaultCircleScale = GetMiscDataFloat("SelectionCircle", "ScaleFactor", 0);
+			if (DefaultCircleScale <= 1.0)
+				DefaultCircleScale = 50.0f;
+
+			//WatcherLog("CircleScale : %f.\n", DefaultCircleScale);
+
 		}
 		SearchPlayersFogSelect();
 	}
@@ -3169,7 +3249,8 @@ void Init126aVer()
 {
 	GameVersion = 0x126a;
 	pJassEnvAddress = GameDll + 0xADA848;
-	GetTypeInfo = (p_GetTypeInfo)(GameDll + 0x32C880);
+	GetTypeIdInfoAddr = (p_GetTypeInfo)(GameDll + 0x32C880);
+	GetMiscDataFloat = (pGetMiscDataFloat)(GameDll + 0x009E30);
 	GetPlayerName = (p_GetPlayerName)(GameDll + 0x2F8F90);
 
 	GetSpellAbilityId_real = (pGetSpellAbilityId)(GameDll + 0x3C32A0);
@@ -3411,10 +3492,10 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 			}
 			UnhookWindowsHookEx(hhookSysMsg);
 		}
-	}
+}
 
 	return TRUE;
-}
+	}
 
 #ifdef LAUNCHER_MODE
 typedef long NTSTATUS;
