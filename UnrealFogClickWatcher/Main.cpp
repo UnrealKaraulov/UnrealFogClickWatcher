@@ -153,10 +153,11 @@ struct UnitSelectedStruct
 struct FogHelper
 {
 	int UnitAddr;
-	BOOL FogState[MAX_PLAYERS][2];
+	long long LatestTime;
+	BOOL FogState[MAX_PLAYERS][3];
 };
 
-std::vector<UnitSelectedStruct> ClickCount;
+std::vector<UnitSelectedStruct> UnitClickList;
 
 std::vector<FogHelper> FogHelperList;
 
@@ -324,6 +325,8 @@ int GetPlayerByNumber(int number)
 }
 
 unsigned char* _GameTimeOffset = 0;
+
+long long CurGameTime = 0;
 
 long long GetGameTime()
 {
@@ -1053,7 +1056,7 @@ void DisplayText(const std::string& szText, float fDuration)
 	}
 }
 
-long long latestcheck = CurTickCount;
+long long latestcheck = 0;
 
 int GetSelectedItem(int slot)
 {
@@ -1554,7 +1557,7 @@ BOOL __cdecl IsFoggedToPlayerMy(float* pX, float* pY, int player)
 	return CheckCenter;
 }
 
-long long LatestAbilSpell = CurTickCount;
+long long LatestAbilSpell = 0;
 
 
 void GetUnitLocation3D(int unitaddr, float* x, float* y, float* z)
@@ -1651,7 +1654,7 @@ float Distance3D(float x1, float y1, float z1, float x2, float y2, float z2)
 
 float Distance2D(float x1, float y1, float x2, float y2)
 {
-	return Distance3D(x1,y1,1.0f,x2,y2, 1.0f);
+	return Distance3D(x1, y1, 1.0f, x2, y2, 1.0f);
 }
 
 
@@ -1861,13 +1864,13 @@ void ShiftLeftAndAddNewActionScanForBot(int PlayerID, PlayerEvent NewPlayerEvent
 									//if ( !PlayerMeepoDetect[ PlayerID ] )
 									//{
 									//	PlayerMeepoDetect[ PlayerID ] = TRUE;
-									LatestAbilSpell = CurTickCount;
+									LatestAbilSpell = CurGameTime;
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use MeepoKey!!\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use MeepoKey!!\0",
 										GetPlayerColorString(PlayerID),
 										GetPlayerName(PlayerID, 0));
 
-									ActionTime = GetGameTime();
+									ActionTime = CurGameTime;
 									DisplayText(PrintBuffer, 15.0f);
 									SendPause();
 									//}
@@ -1903,10 +1906,10 @@ void BotDetector(int SkillID, int EventID, int CasterID)
 					NewPlayerEvent.Caster = CasterAddr;
 					NewPlayerEvent.EventID = EventID;
 					NewPlayerEvent.SkillID = SkillID;
-					NewPlayerEvent.Time = CurTickCount - LastEventTime;
+					NewPlayerEvent.Time = llabs(CurGameTime - LastEventTime);
 					NewPlayerEvent.SelectedUnits = GetSelectedUnitCount(CasterSlot, FALSE);
 					ShiftLeftAndAddNewActionScanForBot(CasterSlot, NewPlayerEvent);
-					LastEventTime = CurTickCount;
+					LastEventTime = CurGameTime;
 				}
 			}
 		}
@@ -1957,9 +1960,19 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 							{
 								if (TargetAddr == FogHelperList[z].UnitAddr)
 								{
-									if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1]))
+									if (DetectQuality == 3)
 									{
-										needcontinue = TRUE;
+										if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1]))
+										{
+											needcontinue = TRUE;
+										}
+									}
+									else
+									{
+										if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1] && FogHelperList[z].FogState[CasterSlot][2]))
+										{
+											needcontinue = TRUE;
+										}
 									}
 								}
 							}
@@ -1970,43 +1983,43 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 						{
 							float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
 							GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
-							if (IsFoggedToPlayerMy(&unitx, &unity, Player(GetUnitOwnerSlot(CasterAddr))))
+							if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
 							{
-								LatestAbilSpell = CurTickCount;
+								LatestAbilSpell = CurGameTime;
 								if (MinimapPingFogClick && IsReplayMode)
 								{
-									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
+									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
-									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
-									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
+									GetPlayerColorString(Player(CasterSlot)),
+									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
-								ActionTime = GetGameTime();
+								ActionTime = CurGameTime;
 								DisplayText(PrintBuffer, 15.0f);
 								SendPause();
 							}
-							else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(GetUnitOwnerSlot(CasterAddr))))
+							else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
 							{
-								LatestAbilSpell = CurTickCount;
+								LatestAbilSpell = CurGameTime;
 								if (MinimapPingFogClick && IsReplayMode)
 								{
-									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
+									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
-									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
-									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
+									GetPlayerColorString(Player(CasterSlot)),
+									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
-								ActionTime = GetGameTime();
+								ActionTime = CurGameTime;
 								DisplayText(PrintBuffer, 15.0f);
 								SendPause();
 							}
@@ -2021,9 +2034,11 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 
 			if (CasterAddr > 0)
 			{
+				int CasterOwner = GetUnitOwnerSlot(CasterAddr);
+
 				float x = GetSpellTargetX;
 				float y = GetSpellTargetY;
-				int TargetAddr = GetUnitByXY(x, y, GetUnitOwnerSlot(CasterAddr), TRUE);
+				int TargetAddr = GetUnitByXY(x, y, CasterOwner, TRUE);
 
 				if (TargetAddr > 0 && (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))))
 				{
@@ -2034,9 +2049,20 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 						{
 							if (TargetAddr == FogHelperList[z].UnitAddr)
 							{
-								if (!(FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][0] && FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][1]))
+								if (DetectQuality == 3)
 								{
-									needcontinue = TRUE;
+									if (!(FogHelperList[z].FogState[CasterOwner][0] && FogHelperList[z].FogState[CasterOwner][1]))
+									{
+										needcontinue = TRUE;
+									}
+								}
+								else
+								{
+									if (!(FogHelperList[z].FogState[CasterOwner][0] && FogHelperList[z].FogState[CasterOwner][1]
+										&& FogHelperList[z].FogState[CasterOwner][2]))
+									{
+										needcontinue = TRUE;
+									}
 								}
 							}
 						}
@@ -2044,47 +2070,47 @@ void ProcessGetSpellAbilityIdAction(int EventID, int TargetUnitHandle, int Caste
 
 					if (!needcontinue)
 					{
-						if (GetPlayerController(Player(GetUnitOwnerSlot(CasterAddr))) == 0 && GetPlayerSlotState(Player(GetUnitOwnerSlot(CasterAddr))) == 1)
+						if (GetPlayerController(Player(CasterOwner)) == 0 && GetPlayerSlotState(Player(CasterOwner)) == 1)
 						{
 							float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
 							GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
-							if (IsFoggedToPlayerMy(&unitx, &unity, Player(GetUnitOwnerSlot(CasterAddr))))
+							if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterOwner)))
 							{
-								LatestAbilSpell = CurTickCount;
+								LatestAbilSpell = CurGameTime;
 								if (MinimapPingFogClick && IsReplayMode)
 								{
-									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
+									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterOwner));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
-									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
-									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
+									GetPlayerColorString(Player(CasterOwner)),
+									GetPlayerName(CasterOwner, 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
-								ActionTime = GetGameTime();
+								ActionTime = CurGameTime;
 								DisplayText(PrintBuffer, 15.0f);
 								SendPause();
 							}
-							else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(GetUnitOwnerSlot(CasterAddr))))
+							else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterOwner)))
 							{
-								LatestAbilSpell = CurTickCount;
+								LatestAbilSpell = CurGameTime;
 								if (MinimapPingFogClick && IsReplayMode)
 								{
-									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
+									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterOwner));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
-									GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
-									GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
+									GetPlayerColorString(Player(CasterOwner)),
+									GetPlayerName(CasterOwner, 0),
 									ConvertIdToString(GetIssueOrderId).c_str(),
 									GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 									GetObjectName(TargetAddr));
 
-								ActionTime = GetGameTime();
+								ActionTime = CurGameTime;
 								DisplayText(PrintBuffer, 15.0f);
 								SendPause();
 							}
@@ -2141,9 +2167,20 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									{
 										if (TargetAddr == FogHelperList[z].UnitAddr)
 										{
-											if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1]))
+											if (DetectQuality == 3)
 											{
-												needcontinue = TRUE;
+												if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1]))
+												{
+													needcontinue = TRUE;
+												}
+											}
+											else
+											{
+												if (!(FogHelperList[z].FogState[CasterSlot][0] && FogHelperList[z].FogState[CasterSlot][1]
+													&& FogHelperList[z].FogState[CasterSlot][2]))
+												{
+													needcontinue = TRUE;
+												}
 											}
 										}
 									}
@@ -2166,13 +2203,13 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 
 								if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
 								{
-									LatestAbilSpell = CurTickCount;
+									LatestAbilSpell = CurGameTime;
 									if (MinimapPingFogClick && IsReplayMode)
 									{
 										unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
@@ -2180,26 +2217,26 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 										IsItem ? "|c004B4B4B" : GetPlayerColorString(Player(TargetSlot)),
 										GetObjectName(TargetAddr));
 
-									ActionTime = GetGameTime();
+									ActionTime = CurGameTime;
 									DisplayText(PrintBuffer, 15.0f);
 									SendPause();
 								}
 								else if (!IsItem && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
 								{
-									LatestAbilSpell = CurTickCount;
+									LatestAbilSpell = CurGameTime;
 									if (MinimapPingFogClick && IsReplayMode)
 									{
 										unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
 										GetPlayerColorString(Player(CasterSlot)),
 										GetPlayerName(CasterSlot, 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
 										GetPlayerColorString(Player(TargetSlot)),
 										GetObjectName(TargetAddr));
 
-									ActionTime = GetGameTime();
+									ActionTime = CurGameTime;
 									DisplayText(PrintBuffer, 15.0f);
 									SendPause();
 								}
@@ -2214,14 +2251,14 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 												unsigned int PlayerColorInt = GetPlayerColorUINT(Player(CasterSlot));
 												PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 											}
-											LatestAbilSpell = CurTickCount;
-											sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r try to destroy item %s%s|r|r\0",
+											LatestAbilSpell = CurGameTime;
+											sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r try to destroy item %s%s|r|r\0",
 												GetPlayerColorString(Player(CasterSlot)),
 												GetPlayerName(CasterSlot, 0),
 												GetPlayerColorString(Player(TargetSlot)),
 												GetObjectName(TargetAddr));
 
-											ActionTime = GetGameTime();
+											ActionTime = CurGameTime;
 											DisplayText(PrintBuffer, 15.0f);
 											SendPause();
 										}
@@ -2269,9 +2306,20 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									{
 										if (TargetAddr == FogHelperList[z].UnitAddr)
 										{
-											if (!(FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][0] && FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][1]))
+											if (DetectQuality == 3)
 											{
-												needcontinue = TRUE;
+												if (!(FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][0] && FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][1]))
+												{
+													needcontinue = TRUE;
+												}
+											}
+											else
+											{
+												if (!(FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][0] && FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][1]
+													&& FogHelperList[z].FogState[GetUnitOwnerSlot(CasterAddr)][2]))
+												{
+													needcontinue = TRUE;
+												}
 											}
 										}
 									}
@@ -2287,42 +2335,42 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 
 									if ((DetectPointClicks || DetectionImpossibleClick) && IsFoggedToPlayerMy(&unitx, &unity, Player(GetUnitOwnerSlot(CasterAddr))))
 									{
-										LatestAbilSpell = CurTickCount;
+										LatestAbilSpell = CurGameTime;
 										if (MinimapPingFogClick && IsReplayMode)
 										{
 											unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
 
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(GetIssuedOrderId).c_str(),
 											GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 											GetObjectName(TargetAddr));
 
-										ActionTime = GetGameTime();
+										ActionTime = CurGameTime;
 										DisplayText(PrintBuffer, 15.0f);
 										ImpossibleClick = FALSE;
 										SendPause();
 									}
 									else if (DetectPointClicks && !DetectionImpossibleClick && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(GetUnitOwnerSlot(CasterAddr))))
 									{
-										LatestAbilSpell = CurTickCount;
+										LatestAbilSpell = CurGameTime;
 										if (MinimapPingFogClick && IsReplayMode)
 										{
 											unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
 
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
 											GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 											GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 											ConvertIdToString(GetIssuedOrderId).c_str(),
 											GetPlayerColorString(Player(GetUnitOwnerSlot(TargetAddr))),
 											GetObjectName(TargetAddr));
 
-										ActionTime = GetGameTime();
+										ActionTime = CurGameTime;
 										DisplayText(PrintBuffer, 15.0f);
 										SendPause();
 									}
@@ -2334,7 +2382,7 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 								GetItemLocation3D(TargetAddr, &xunitx, &xunity, &xunitz);
 								if (IsFoggedToPlayerMy(&xunitx, &xunity, Player(GetUnitOwnerSlot(CasterAddr))))
 								{
-									LatestAbilSpell = CurTickCount;
+									LatestAbilSpell = CurGameTime;
 									if (MinimapPingFogClick && IsReplayMode)
 									{
 										unsigned int PlayerColorInt = GetPlayerColorUINT(Player(GetUnitOwnerSlot(CasterAddr)));
@@ -2342,14 +2390,14 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 									}
 
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
 										GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 										GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0),
 										ConvertIdToString(GetIssuedOrderId).c_str(),
 										"|c004B4B4B",
 										GetObjectName(TargetAddr));
 
-									ActionTime = GetGameTime();
+									ActionTime = CurGameTime;
 									DisplayText(PrintBuffer, 15.0f);
 									SendPause();
 								}
@@ -2362,13 +2410,13 @@ void ProcessGetTriggerEventAction(int EventID, int TargetUnitHandle_, int Caster
 			{
 				if (GetIssuedOrderId == 851971)
 				{
-					LatestAbilSpell = CurTickCount;
+					LatestAbilSpell = CurGameTime;
 
-					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r activate GuAI Maphack!!\0",
+					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r activate GuAI Maphack!!\0",
 						GetPlayerColorString(Player(GetUnitOwnerSlot(CasterAddr))),
 						GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0));
 
-					ActionTime = GetGameTime();
+					ActionTime = CurGameTime;
 					DisplayText(PrintBuffer, 15.0f);
 					SendPause();
 				}
@@ -2431,12 +2479,12 @@ int __cdecl GetTriggerEventId_hooked()
 	tmpProcessNewAction.GetSpellOrderTargetX = _GetOrderPointX().fl;
 	tmpProcessNewAction.GetSpellOrderTargetY = _GetOrderPointY().fl;
 
-	if (GetTriggerEventIdTime != GetGameTime())
+	if (GetTriggerEventIdTime != CurGameTime)
 	{
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 	}
 
-	GetTriggerEventIdTime = GetGameTime();
+	GetTriggerEventIdTime = CurGameTime;
 
 	GetTriggerEventId_CasterUnitHandle = tmpProcessNewAction.CasterUnitHandle;
 	GetTriggerEventId_EventID = tmpProcessNewAction.EventID;
@@ -2484,12 +2532,12 @@ int __cdecl GetSpellAbilityId_hooked()
 	tmpProcessNewAction.GetSpellOrderTargetX = _GetSpellTargetX().fl;
 	tmpProcessNewAction.GetSpellOrderTargetY = _GetSpellTargetY().fl;
 
-	if (GetSpellAbilityIdTime != GetGameTime())
+	if (GetSpellAbilityIdTime != CurGameTime)
 	{
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 	}
 
-	GetSpellAbilityIdTime = GetGameTime();
+	GetSpellAbilityIdTime = CurGameTime;
 
 	GetSpellAbilityId_CasterUnitHandle = tmpProcessNewAction.CasterUnitHandle;
 	GetSpellAbilityId_EventID = tmpProcessNewAction.EventID;
@@ -2551,9 +2599,9 @@ long long LatestFogCheck = 0;
 
 void UpdateFogHelper()
 {
-	if (CurTickCount - LatestFogCheck > 300)
+	if (llabs(CurGameTime - LatestFogCheck) > 150)
 	{
-		LatestFogCheck = CurTickCount;
+		LatestFogCheck = CurGameTime;
 		for (int n = 0; n < MAX_PLAYERS; n++)
 		{
 			if (!DetectLocalPlayer && GetLocalPlayerNumber() == n)
@@ -2581,13 +2629,24 @@ void UpdateFogHelper()
 							GetUnitLocation3D(CurrentUnit, &unitx, &unity, &unitz);
 
 							BOOL FoundUnit = FALSE;
-							for (unsigned int m = 0; m < FogHelperList.size(); m++)
+							for (auto& UnitFogHelper : FogHelperList)
 							{
-								if (CurrentUnit == FogHelperList[m].UnitAddr)
+								if (CurrentUnit == UnitFogHelper.UnitAddr
+									&& llabs(CurGameTime - UnitFogHelper.LatestTime) > 400)
 								{
+									UnitFogHelper.LatestTime = CurGameTime;
 									FoundUnit = TRUE;
-									FogHelperList[m].FogState[n][1] = FogHelperList[m].FogState[n][0];
-									FogHelperList[m].FogState[n][0] = (IsFoggedToPlayerMy(&unitx, &unity, Player(n)) || !IsUnitVisibleToPlayer((unsigned char*)CurrentUnit, (unsigned char*)GetPlayerByNumber(n)));
+									if (DetectQuality == 3)
+									{
+										UnitFogHelper.FogState[n][0] = UnitFogHelper.FogState[n][1];
+										UnitFogHelper.FogState[n][1] = (IsFoggedToPlayerMy(&unitx, &unity, Player(n)) || !IsUnitVisibleToPlayer((unsigned char*)CurrentUnit, (unsigned char*)GetPlayerByNumber(n)));
+									}
+									else
+									{
+										UnitFogHelper.FogState[n][0] = UnitFogHelper.FogState[n][1];
+										UnitFogHelper.FogState[n][1] = UnitFogHelper.FogState[n][2];
+										UnitFogHelper.FogState[n][2] = (IsFoggedToPlayerMy(&unitx, &unity, Player(n)) || !IsUnitVisibleToPlayer((unsigned char*)CurrentUnit, (unsigned char*)GetPlayerByNumber(n)));
+									}
 								}
 							}
 							if (!FoundUnit)
@@ -2597,6 +2656,7 @@ void UpdateFogHelper()
 								{
 									tmpghelp.FogState[z][0] = TRUE;
 									tmpghelp.FogState[z][1] = TRUE;
+									tmpghelp.FogState[z][2] = TRUE;
 								}
 								tmpghelp.UnitAddr = CurrentUnit;
 								FogHelperList.push_back(tmpghelp);
@@ -2653,48 +2713,48 @@ void SearchPlayersFogSelect()
 
 		int selectedunit = GetSelectedUnit(i);
 
-		/*	if (IsKeyPressed('X'))
+	/*	if (IsKeyPressed('X'))
+		{
+			int plr = GetPlayerByNumber(i);
+			if (plr > 0)
 			{
-				int plr = GetPlayerByNumber(i);
-				if (plr > 0)
+				int PlayerData1 = *(int*)(plr + 0x34);
+				if (PlayerData1 > 0)
 				{
-					int PlayerData1 = *(int*)(plr + 0x34);
-					if (PlayerData1 > 0)
+					int unit1 = *(int*)(PlayerData1 + 0x1E0);
+					int unit2 = *(int*)(PlayerData1 + 0x1A4);
+					int unitcount = *(int*)(PlayerData1 + 0x10);
+					int unitcount2 = *(int*)(PlayerData1 + 0x1D4);
+
+					float scale = 1.0f;
+					int unitData = 0;
+
+					if (selectedunit)
 					{
-						int unit1 = *(int*)(PlayerData1 + 0x1E0);
-						int unit2 = *(int*)(PlayerData1 + 0x1A4);
-						int unitcount = *(int*)(PlayerData1 + 0x10);
-						int unitcount2 = *(int*)(PlayerData1 + 0x1D4);
-
-						float scale = 1.0f;
-						int unitData = 0;
-
-						if (selectedunit)
+						unitData = GetTypeIdInfoAddr(GetObjectTypeId(selectedunit), 0);
+						if (unitData > 0)
 						{
-							unitData = GetTypeIdInfoAddr(GetObjectTypeId(selectedunit), 0);
-							if (unitData > 0)
-							{
-								scale = *(float*)(unitData + 0x54) * 50.0;
-							}
+							scale = *(float*)(unitData + 0x54) * 50.0f;
 						}
-
-						int somedata = 0;
-						int somedata2 = 0;
-
-						if (selectedunit)
-						{
-							somedata = GetSomeAddr(*(unsigned int*)(selectedunit + 0xA0), *(unsigned int*)(selectedunit + 0xA4));
-							somedata2 = GetSomeAddr(*(unsigned int*)(selectedunit + 0xC0), *(unsigned int*)(selectedunit + 0xC4));
-						}
-
-						char debug[256];
-						sprintf_s(debug, "Name:[%s] id=%i poffs=%X pdata=%X U1:%X U22: %X & %i=%i DA:%X SC:%f SD:%X/%X\n", GetPlayerName(i, 0), i, plr, PlayerData1, unit1
-							, unit2, unitcount, unitcount2, unitData, scale, somedata, somedata2);
-						DisplayText(debug, 20.0f);
 					}
+
+					int somedata = 0;
+					int somedata2 = 0;
+
+					if (selectedunit)
+					{
+						somedata = GetSomeAddr(*(unsigned int*)(selectedunit + 0xA0), *(unsigned int*)(selectedunit + 0xA4));
+						somedata2 = GetSomeAddr(*(unsigned int*)(selectedunit + 0xC0), *(unsigned int*)(selectedunit + 0xC4));
+					}
+
+					char debug[256];
+					sprintf_s(debug, "Name:[%s] id=%i poffs=%X pdata=%X U1:%X U22: %X & %i=%i DA:%X SC:%f SD:%X/%X\n", GetPlayerName(i, 0), i, plr, PlayerData1, unit1
+						, unit2, unitcount, unitcount2, unitData, scale, somedata, somedata2);
+					DisplayText(debug, 20.0f);
 				}
 			}
-	*/
+		}*/
+
 
 		if (selectedunit <= 0)
 			continue;
@@ -2706,24 +2766,24 @@ void SearchPlayersFogSelect()
 		if (OwnedPlayerSlot < 0 || OwnedPlayerSlot > 15)
 			continue;
 
-		for (unsigned int n = 0; n < ClickCount.size(); n++)
+		for (auto& UnitClick : UnitClickList)
 		{
-			if (ClickCount[n].PlayerNum == i)
+			if (UnitClick.PlayerNum == i)
 			{
-				if (ClickCount[n].SelectCount >= 0 && ClickCount[n].LatestTime != 0 && IsNotBadUnit(ClickCount[n].UnitAddr))
+				if (UnitClick.SelectCount >= 0 && UnitClick.LatestTime != 0 && IsNotBadUnit(UnitClick.UnitAddr))
 				{
-					if (llabs(GetGameTime() - ClickCount[n].LatestTime) > 200 * DetectQuality)
+					if (llabs(CurGameTime - UnitClick.LatestTime) > 200 * DetectQuality)
 					{
-						BOOL possible = ClickCount[n].initialVisibled || selectedunit == LatestVisibledUnits[i];
+						BOOL possible = UnitClick.initialVisibled || selectedunit == LatestVisibledUnits[i];
 
-						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
 							GetPlayerColorString(Player(i)),
 							GetPlayerName(i, 0),
 							GetPlayerColorString(Player(OwnedPlayerSlot)),
-							GetObjectName(ClickCount[n].UnitAddr),
+							GetObjectName(UnitClick.UnitAddr),
 							possible ? "FALSE" : "POSSIBLE");
 
-						ActionTime = ClickCount[n].LatestTime;
+						ActionTime = UnitClick.LatestTime;
 						if (possible && !DisplayFalse)
 						{
 							int seconds = (int)(ActionTime / 1000) % 60;
@@ -2745,9 +2805,9 @@ void SearchPlayersFogSelect()
 							SendPause();
 						}
 
-						ClickCount[n].SelectCount = -1;
+						UnitClick.SelectCount = -1;
 						if (LatestVisibledUnits[i] == -1)
-							LatestVisibledUnits[i] = ClickCount[n].UnitAddr;
+							LatestVisibledUnits[i] = UnitClick.UnitAddr;
 					}
 				}
 			}
@@ -2788,25 +2848,25 @@ void SearchPlayersFogSelect()
 
 				UnitSelectedStruct* tmpunitselected = NULL;
 
-				for (unsigned int n = 0; n < ClickCount.size(); n++)
+				for (auto& UnitClick : UnitClickList)
 				{
-					if (ClickCount[n].PlayerNum == i)
+					if (UnitClick.PlayerNum == i)
 					{
-						if ((ClickCount[n].SelectCount >= 0 || ClickCount[n].SelectCount == -5) && ClickCount[n].UnitAddr == selectedunit)
+						if ((UnitClick.SelectCount >= 0 || UnitClick.SelectCount == -5) && UnitClick.UnitAddr == selectedunit)
 						{
 							found = TRUE;
-							tmpunitselected = &ClickCount[n];
-							if (ClickCount[n].SelectCount == -5)
-								ClickCount[n].SelectCount = 0;
+							tmpunitselected = &UnitClick;
+							if (UnitClick.SelectCount == -5)
+								UnitClick.SelectCount = 0;
 						}
 					}
 				}
 
-				for (unsigned int n = 0; n < ClickCount.size(); n++)
+				for (auto& UnitClick : UnitClickList)
 				{
-					if (ClickCount[n].PlayerNum == i)
+					if (UnitClick.PlayerNum == i)
 					{
-						if (ClickCount[n].LatestTime != 0 && llabs(GetGameTime() - ClickCount[n].LatestTime) < 5000 && ClickCount[n].SelectCount == -1 && ClickCount[n].UnitAddr == selectedunit)
+						if (UnitClick.LatestTime != 0 && llabs(CurGameTime - UnitClick.LatestTime) < 5000 && UnitClick.SelectCount == -1 && UnitClick.UnitAddr == selectedunit)
 						{
 							needcontinue = TRUE;
 							break;
@@ -2820,9 +2880,20 @@ void SearchPlayersFogSelect()
 					{
 						if (selectedunit == FogHelperList[z].UnitAddr)
 						{
-							if (!(FogHelperList[z].FogState[i][0] && FogHelperList[z].FogState[i][1]))
+							if (DetectQuality == 3)
 							{
-								needcontinue = TRUE;
+								if (!(FogHelperList[z].FogState[i][0] && FogHelperList[z].FogState[i][1]))
+								{
+									needcontinue = TRUE;
+								}
+							}
+							else
+							{
+								if (!(FogHelperList[z].FogState[i][0] && FogHelperList[z].FogState[i][1]
+									&& FogHelperList[z].FogState[i][2]))
+								{
+									needcontinue = TRUE;
+								}
 							}
 						}
 					}
@@ -2838,16 +2909,16 @@ void SearchPlayersFogSelect()
 					UnitSelectedStruct tmpus;
 					tmpus.PlayerNum = i;
 					tmpus.UnitAddr = selectedunit;
-					tmpus.LatestTime = GetGameTime();
+					tmpus.LatestTime = CurGameTime;
 					tmpus.SelectCount = 0;
 					tmpus.initialVisibled = FALSE;
 
-					ClickCount.push_back(tmpus);
-					tmpunitselected = &ClickCount[ClickCount.size() - 1];
+					UnitClickList.push_back(tmpus);
+					tmpunitselected = &UnitClickList[UnitClickList.size() - 1];
 
-					if (ClickCount.size() >= 1000)
+					if (UnitClickList.size() >= 1000)
 					{
-						ClickCount.erase(ClickCount.begin());
+						UnitClickList.erase(UnitClickList.begin());
 					}
 				}
 
@@ -2855,15 +2926,15 @@ void SearchPlayersFogSelect()
 				{
 					if (tmpunitselected->SelectCount < 2)
 					{
-						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 10 * DetectQuality)
+						if (llabs(CurGameTime - tmpunitselected->LatestTime) > 10 * DetectQuality)
 						{
 							tmpunitselected->SelectCount++;
-							tmpunitselected->LatestTime = GetGameTime();
+							tmpunitselected->LatestTime = CurGameTime;
 						}
 					}
 					else
 					{
-						if (llabs(GetGameTime() - tmpunitselected->LatestTime) > 100 * DetectQuality)
+						if (llabs(CurGameTime - tmpunitselected->LatestTime) > 100 * DetectQuality)
 						{
 							BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
 
@@ -2874,7 +2945,7 @@ void SearchPlayersFogSelect()
 									unsigned int PlayerColorInt = GetPlayerColorUINT(Player(i));
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
@@ -2911,7 +2982,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.0]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v16.1]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
 									GetPlayerColorString(Player(i)),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(Player(OwnedPlayerSlot)),
@@ -2977,16 +3048,16 @@ void SearchPlayersFogSelect()
 				LatestVisibledUnits2[i] = selectedunit;
 
 				BOOL found = FALSE;
-				for (unsigned int n = 0; n < ClickCount.size(); n++)
+				for (auto& UnitClick : UnitClickList)
 				{
-					if (ClickCount[n].PlayerNum == i)
+					if (UnitClick.PlayerNum == i)
 					{
-						if (ClickCount[n].UnitAddr == selectedunit)
+						if (UnitClick.UnitAddr == selectedunit)
 						{
 							LatestVisibledUnits[i] = selectedunit;
-							ClickCount[n].initialVisibled = TRUE;
+							UnitClick.initialVisibled = TRUE;
 						}
-						if ((ClickCount[n].SelectCount >= 0 || ClickCount[n].SelectCount == -5) && ClickCount[n].UnitAddr == selectedunit)
+						if ((UnitClick.SelectCount >= 0 || UnitClick.SelectCount == -5) && UnitClick.UnitAddr == selectedunit)
 						{
 							found = TRUE;
 						}
@@ -2998,15 +3069,15 @@ void SearchPlayersFogSelect()
 					UnitSelectedStruct tmpus;
 					tmpus.PlayerNum = i;
 					tmpus.UnitAddr = selectedunit;
-					tmpus.LatestTime = GetGameTime();
+					tmpus.LatestTime = CurGameTime;
 					tmpus.SelectCount = -5;
 					tmpus.initialVisibled = TRUE;
-					LatestVisibleUnitTime = GetGameTime();
+					LatestVisibleUnitTime = CurGameTime;
 					LatestVisibledUnits[i] = selectedunit;
-					ClickCount.push_back(tmpus);
-					if (ClickCount.size() >= 1000)
+					UnitClickList.push_back(tmpus);
+					if (UnitClickList.size() >= 1000)
 					{
-						ClickCount.erase(ClickCount.begin());
+						UnitClickList.erase(UnitClickList.begin());
 					}
 				}
 			}
@@ -3209,11 +3280,11 @@ void ProcessFogWatcher()
 			LoadFogClickWatcherConfig();
 
 			ActionTime = GetCurrentLocalTime();
-			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v16.0 for Warcraft 1.26a by UnrealKaraulov......");
+			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v16.1 for Warcraft 1.26a by UnrealKaraulov......");
 
 			WatcherLog("Watch fog clicks for Game id: %i. Map name: %s.\n", GameID++, MapFileName);
 
-			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v16.0 by UnrealKaraulov][1.26a]: Initialized.|r\0");
+			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v16.1 by UnrealKaraulov][1.26a]: Initialized.|r\0");
 			ActionTime = 0;
 			DisplayText(PrintBuffer, 15.0f);
 			if (IsReplayMode())
@@ -3302,7 +3373,7 @@ void GameWaiting()
 			GameStarted = TRUE;
 
 			StartGameTime = CurTickCount;
-			ClickCount.clear();
+			UnitClickList.clear();
 			FogHelperList.clear();
 			LatestAbilSpell = 0;
 			memset(PlayerSelectedItems, 0, sizeof(PlayerSelectedItems));
@@ -3327,7 +3398,7 @@ void GameWaiting()
 			IsReplayFound = FALSE;
 			GameStarted = FALSE;
 			StartGameTime = CurTickCount;
-			ClickCount.clear();
+			UnitClickList.clear();
 			FogHelperList.clear();
 			LatestAbilSpell = 0;
 			memset(PlayerSelectedItems, 0, sizeof(PlayerSelectedItems));
@@ -3354,7 +3425,7 @@ LRESULT CALLBACK HookCallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 	bool updated = false;
 
-	if (llabs(CurTickCount - LastGameUpdate) > 2)
+	if (CurTickCount != LastGameUpdate)
 	{
 		if (GetCurrentThreadId() == MainThread)
 		{
@@ -3372,9 +3443,11 @@ LRESULT CALLBACK HookCallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 		}
 	}
 
-	if (GameStarted)
+	if (updated && GameStarted)
 	{
-		if (updated && llabs(CurTickCount - LastClickWatcher) >= 15)
+		CurGameTime = GetGameTime();
+
+		if (llabs(CurTickCount - LastClickWatcher) >= 15)
 		{
 			LastClickWatcher = CurTickCount;
 			try
@@ -3385,11 +3458,10 @@ LRESULT CALLBACK HookCallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 			{
 				if (DebugLog)
 					WatcherLog("CRASH: ProcessFogWatcher \n");
-
 			}
 		}
 
-		if (updated && llabs(CurTickCount - LastActionProcess) >= 10 && GameStartedReally)
+		if (llabs(CurTickCount - LastActionProcess) >= 10 && GameStartedReally)
 		{
 			LastActionProcess = CurTickCount;
 			try
@@ -3492,10 +3564,10 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 			}
 			UnhookWindowsHookEx(hhookSysMsg);
 		}
-}
+	}
 
 	return TRUE;
-	}
+}
 
 #ifdef LAUNCHER_MODE
 typedef long NTSTATUS;
