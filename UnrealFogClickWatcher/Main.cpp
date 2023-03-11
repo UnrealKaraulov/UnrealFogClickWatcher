@@ -3390,7 +3390,7 @@ void SearchPlayersFogSelect()
 		std::vector<UnitSelectedStruct> newUnitClickList;
 		for (auto& UnitClick : UnitClickList)
 		{
-			if (llabs(CurGameTime - UnitClick.LatestTime) < 5000)
+			if (llabs(CurGameTime - UnitClick.LatestTime) < 15000)
 			{
 				newUnitClickList.push_back(UnitClick);
 			}
