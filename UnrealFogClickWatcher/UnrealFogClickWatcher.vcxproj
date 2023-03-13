@@ -120,8 +120,14 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BaseStructs.h" />
+    <ClInclude Include="GameStructs.h" />
     <ClInclude Include="IniReader.h" />
     <ClInclude Include="IniWriter.h" />
+    <ClInclude Include="StringStructs.h" />
+    <ClInclude Include="StructHelper.h" />
+    <ClInclude Include="TextTagManagerStructs.h" />
+    <ClInclude Include="UIStructs.h" />
     <ClInclude Include="verinfo.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -16,6 +16,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="DreamDotaStructs">
+      <UniqueIdentifier>{314be62d-fe27-45cd-90a3-443482bf328a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -40,6 +43,24 @@
     </ClInclude>
     <ClInclude Include="verinfo.h">
       <Filter>VERSION_DETECT_STUFF</Filter>
+    </ClInclude>
+    <ClInclude Include="GameStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
+    <ClInclude Include="TextTagManagerStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
+    <ClInclude Include="StringStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
+    <ClInclude Include="UIStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
+    <ClInclude Include="StructHelper.h">
+      <Filter>DreamDotaStructs</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
