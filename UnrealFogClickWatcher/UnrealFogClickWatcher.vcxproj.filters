@@ -62,5 +62,11 @@
     <ClInclude Include="StructHelper.h">
       <Filter>DreamDotaStructs</Filter>
     </ClInclude>
+    <ClInclude Include="fp_call.h">
+      <Filter>INI_STUFF</Filter>
+    </ClInclude>
+    <ClInclude Include="JassStructs.h">
+      <Filter>DreamDotaStructs</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -121,9 +121,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BaseStructs.h" />
+    <ClInclude Include="fp_call.h" />
     <ClInclude Include="GameStructs.h" />
     <ClInclude Include="IniReader.h" />
     <ClInclude Include="IniWriter.h" />
+    <ClInclude Include="JassStructs.h" />
     <ClInclude Include="StringStructs.h" />
     <ClInclude Include="StructHelper.h" />
     <ClInclude Include="TextTagManagerStructs.h" />
