@@ -2546,15 +2546,18 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
-										GetPlayerColorString(CasterSlot),
-										GetPlayerName(CasterSlot, 0),
-										ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(action.GetIssuedOrderId).c_str(),
-										GetPlayerColorString(TargetSlot),
-										GetObjectName(TargetAddr));
+									if (!DetectImpossibleClicks || (action.GetIssuedOrderId == 0xD0012 || action.GetIssuedOrderId == 0xD0003))
+									{
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
+											GetPlayerColorString(CasterSlot),
+											GetPlayerName(CasterSlot, 0),
+											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(action.GetIssuedOrderId).c_str(),
+											GetPlayerColorString(TargetSlot),
+											GetObjectName(TargetAddr));
 
-									ActionTime = CurGameTime;
-									DisplayText(PrintBuffer, 14.4f);
+										ActionTime = CurGameTime;
+										DisplayText(PrintBuffer, 14.4f);
+									}
 									ImpossibleClick = FALSE;
 									SendPause();
 								}
