@@ -427,7 +427,16 @@ unsigned int GetPlayerColorUINT(int player)
 	return 0xff4B4B4B;
 }
 
-
+//
+//const char* TexturePath = "ReplaceableTextures\\Selection\\SpellAreaOfEffect_basic.blp";
+//
+//
+//struct ImageUpdateStr
+//{
+//	int unitaddr;
+//	long long lastupdate;
+//
+//}
 
 unsigned char* GameTimeOffset = 0;
 
@@ -989,14 +998,8 @@ float GetUnitTimer(int unitaddr)
 	return *(float*)(unitdataddr + 0xA0);
 }
 
-unsigned char* GetSomeAddr_Addr = 0;
-__declspec(naked) int __fastcall GetSomeAddr(UINT a1, UINT a2)
-{
-	__asm
-	{
-		JMP GetSomeAddr_Addr;
-	}
-}
+typedef int(__fastcall * pGetSomeAddr)(UINT a1, UINT a2);
+pGetSomeAddr GetSomeAddr;
 
 
 
@@ -1132,6 +1135,7 @@ int Player(int number)
 
 int __cdecl IsUnitVisibleToPlayer(unsigned char* unitaddr, unsigned char* player)
 {
+	int retval = 0;
 	if (unitaddr && player)
 	{
 		__asm
@@ -1146,10 +1150,11 @@ int __cdecl IsUnitVisibleToPlayer(unsigned char* unitaddr, unsigned char* player
 			mov eax, [edx + 0x000000FC];
 			mov ecx, esi;
 			call eax;
+			mov retval, eax;
 		}
 	}
 	else
-		return 0;
+		return retval;
 }
 
 typedef int(__cdecl* pIsUnitSelected)(int unitaddr, int playerdataaddr);
@@ -1582,7 +1587,6 @@ int RevertJassNativeHook(int newaddress, int oldaddress)
 	return CreateJassNativeHook(oldaddress, newaddress);
 }
 
-
 //
 //int CreateJassNativeHook(const std::string& name, int newaddress)
 //{
@@ -1727,6 +1731,7 @@ int GetPlayerSlotStateById(int player_id)
 
 	return -1;
 }
+
 //
 //BOOL __cdecl IsPlayerEnemy(int hplayer1, int hplayer2)
 //{
@@ -1782,7 +1787,7 @@ BOOL __fastcall IsPlayerEnemyById(int id1, int id2)
 //		return 0;
 //	return *(int*)(playeraddr + 0x278);
 //}
-//
+
 //int IsPlayerEnemy(unsigned char* unitaddr)
 //{
 //	int teamplayer1 = GetPlayerTeam(GetLocalPlayer());
@@ -1841,8 +1846,6 @@ BOOL __cdecl IsFoggedToPlayerMy(float* pX, float* pY, int player)
 	// BOT
 	float x5 = x1;
 	float y5 = y1 - 128;
-
-
 
 	BOOL CheckCenter = IsFoggedToPlayerReal(&x1, &y1, player);
 
@@ -1931,8 +1934,6 @@ void GetItemLocation3D(int itemaddr, float* x, float* y, float* z)
 	}
 }
 
-
-
 /*void GetUnitLocation2D(int unitaddr, float* x, float* y)
 {
 	if (unitaddr)
@@ -1946,7 +1947,6 @@ void GetItemLocation3D(int itemaddr, float* x, float* y, float* z)
 		*y = 0.0;
 	}
 }
-
 
 void GetItemLocation2D(int itemaddr, float* x, float* y)
 {
@@ -1971,7 +1971,6 @@ void GetItemLocation2D(int itemaddr, float* x, float* y)
 	}
 }*/
 
-
 float Distance3D(float x1, float y1, float z1, float x2, float y2, float z2)
 {
 	double d[] = { abs((double)x1 - (double)x2), abs((double)y1 - (double)y2), abs((double)z1 - (double)z2) };
@@ -1984,7 +1983,6 @@ float Distance2D(float x1, float y1, float x2, float y2)
 {
 	return Distance3D(x1, y1, 1.0f, x2, y2, 1.0f);
 }
-
 
 float pingduration = 1.5;
 
@@ -2017,7 +2015,6 @@ int GetItemByXY(float x, float y, int player)
 	}
 	return 0;
 }
-
 
 BOOL ImpossibleClick = FALSE;
 
@@ -2234,11 +2231,8 @@ void BotDetector(int SkillID, int EventID, int CasterID)
 			}
 		}
 	}
-
 	//WatcherLog( "[+%ims][LogActions] : Event:%i - Skill:%X - Caster:%X \n", GetGameTime( ) - LastEventTime, EventID, SkillID, CasterID );
-
 }
-
 
 struct ProcessNewAction
 {
@@ -2395,6 +2389,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 	{
 		BOOL IsItem = FALSE;
 		int TargetUnitHandle = action.TargetUnitHandle;
+
 		if (TargetUnitHandle <= 0)
 		{
 			TargetUnitHandle = action.TargetItemHandle;
@@ -2595,7 +2590,6 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 									PingMinimapMy(&xunitx, &xunity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-
 
 								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
 									GetPlayerColorString(CasterSlot),
@@ -2865,7 +2859,6 @@ int __cdecl GetSpellAbilityUnit_hooked()
 			GetSpellAbilityUnitCalled = FALSE;
 			return spellreal;
 		}
-
 		GetTriggerEventId_hooked();
 	}
 	GetSpellAbilityUnitCalled = FALSE;
@@ -4078,7 +4071,7 @@ void Init126aVer()
 	GetPlayerSlotState_real = (pGetPlayerSlotState)(GameDll + 0x3C12D0);
 	pGlobalWar3Data = 0xAB65F4 + GameDll;
 	PingMinimapEx = (pPingMinimapEx)(GameDll + 0x3B8660);
-	GetSomeAddr_Addr = 0x03FA30 + GameDll;
+	GetSomeAddr = (pGetSomeAddr)(0x03FA30 + GameDll);
 	MapFileName = (const char*)(GameDll + 0xAAE7CE);
 
 	GetEventPlayerChatString = (pGetEventPlayerChatString)(GameDll + 0x3C20B0);
