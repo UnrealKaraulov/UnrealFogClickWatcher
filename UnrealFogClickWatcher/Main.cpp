@@ -59,6 +59,57 @@ long long StartGameTime = 0;
 
 int LoggingType = 0;
 
+BOOL BB_CODE_FORMAT_OUTPUT = TRUE;
+
+void replaceAll(std::string & str, const std::string& from, const std::string& to)
+{
+	size_t start_pos = 0;
+	while ((start_pos = str.find(from, start_pos)) != std::string::npos)
+	{
+		str.replace(start_pos, from.length(), to);
+		start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+	}
+}
+
+
+void WatcherLogAddLine(std::string line)
+{
+	if (BB_CODE_FORMAT_OUTPUT)
+	{
+		std::size_t ind = line.find("|r");
+
+		while (ind != std::string::npos)
+		{
+			line.erase(ind, 2);
+			//line.insert(ind, "[/b]");
+			ind = line.find("|r");
+		}
+
+		ind = line.find("|c");
+		while (ind != std::string::npos)
+		{
+			line.erase(ind, 2);
+
+			if (line.size() - ind > 8)
+			{
+				line.erase(ind, 8);
+			}
+
+			//line.insert(ind, "[b]");
+			ind = line.find("|c");
+		}
+
+		replaceAll(line, "[", "[b^^^[");
+		replaceAll(line, "]", "][/b]");
+		replaceAll(line, "^^^", "]");
+	}
+
+	std::ofstream outfile(logFileName, std::ios_base::app);
+	if (!outfile.bad() && outfile.is_open())
+		outfile << line;
+	outfile.close();
+}
+
 void WatcherLog(const char* format, ...)
 {
 	if (LoggingType == -1)
@@ -67,10 +118,7 @@ void WatcherLog(const char* format, ...)
 	va_list args;
 	va_start(args, format);
 	vsprintf_s(buffer, format, args);
-	std::ofstream outfile(logFileName, std::ios_base::app);
-	if (!outfile.bad() && outfile.is_open())
-		outfile << buffer;
-	outfile.close();
+	WatcherLogAddLine(buffer);
 	va_end(args);
 }
 
@@ -80,10 +128,7 @@ void WatcherLogForce(const char* format, ...)
 	va_list args;
 	va_start(args, format);
 	vsprintf_s(buffer, format, args);
-	std::ofstream outfile(logFileName, std::ios_base::app);
-	if (!outfile.bad() && outfile.is_open())
-		outfile << buffer;
-	outfile.close();
+	WatcherLogAddLine(buffer);
 	va_end(args);
 }
 
@@ -1501,6 +1546,28 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 
 	if (ICCUP_DOTA_SUPPORT)
 	{
+		// Понадобится Cheat Engine
+		// Быстрый поиск можно - отключить
+		// Поставить "минусы" на все типы памяти
+		// Ввести 6F3C83E0 (к примеру)
+		// Найти в war3map
+		// Пройтись до начала массива и указать его адрес далее
+
+
+		// Второй вариант
+		// Понадобится Cheat Engine с отладчиком VEH 
+		// Установить точку останова на любую JASS нативу
+		// Возврат ищем откуда взялся адрес, там ищем начало массива
+		// Указать адрес ниже
+
+		// Третий вариант
+		// IDA PRO или IDA DEMO 
+		// открыть war3map.dll
+		// Найти Initialize
+		// Там найти вызов реальной функции инициализации
+		// В ней будет функция инициализации списка JASS нативок
+		// Первый из dword_ адресов нужный нам :)
+
 		// Список Jass функций в Dota 6.83s fukkei
 		if (module && *(int*)(module + 0xb2eb28) == (int)(GameDll + 0x3D1550))
 		{
@@ -1540,6 +1607,22 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 		{
 			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 396]");
 			unsigned char* StartAddr = module + 0x104571C;
+			while (*(int*)StartAddr != 0)
+			{
+				if (*(int*)StartAddr == oldaddress)
+				{
+					*(int*)StartAddr = newaddress;
+					return oldaddress;
+				}
+				StartAddr += 4;
+			}
+		}
+
+		// Список JASS функций в iCCup Dota 400
+		if (module && *(int*)(module + 0x1047C4C) == (int)(GameDll + 0x3C8F00))
+		{
+			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 400]");
+			unsigned char* StartAddr = module + 0x1047C4C;
 			while (*(int*)StartAddr != 0)
 			{
 				if (*(int*)StartAddr == oldaddress)
@@ -2281,7 +2364,7 @@ void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 							}
 
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[TARGET]\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in fogged %s%s|r[TARGET]\0",
 								GetPlayerColorString(CasterSlot),
 								GetPlayerName(CasterSlot, 0),
 								ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2301,7 +2384,7 @@ void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 							}
 
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[TARGET]\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r[TARGET]\0",
 								GetPlayerColorString(CasterSlot),
 								GetPlayerName(CasterSlot, 0),
 								ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2345,7 +2428,7 @@ void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 							}
 
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in fogged %s%s|r|r[POINT]\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in fogged %s%s|r[POINT]\0",
 								GetPlayerColorString(CasterOwner),
 								GetPlayerName(CasterOwner, 0),
 								ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2365,7 +2448,7 @@ void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 							}
 
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r|r[POINT]\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r[POINT]\0",
 								GetPlayerColorString(CasterOwner),
 								GetPlayerName(CasterOwner, 0),
 								ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2439,7 +2522,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged %s %s%s|r|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged %s %s%s|r[TARGET]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2459,7 +2542,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in invisibled %s%s|r|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in invisibled %s%s|r[TARGET]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2482,7 +2565,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
 										LatestAbilSpell = CurGameTime;
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r try to destroy item %s%s|r|r\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r try to destroy item %s%s|r\0",
 											GetPlayerColorString(CasterSlot),
 											GetPlayerName(CasterSlot, 0),
 											GetPlayerColorString(TargetSlot),
@@ -2543,7 +2626,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 
 									if (!DetectImpossibleClicks || (action.GetIssuedOrderId == 0xD0012 || action.GetIssuedOrderId == 0xD0003))
 									{
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [unit] %s%s|r|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [unit] %s%s|r[POINT]\0",
 											GetPlayerColorString(CasterSlot),
 											GetPlayerName(CasterSlot, 0),
 											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2565,7 +2648,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 									}
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in invisibled %s%s|r|r[POINT]\0",
+									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in invisibled %s%s|r[POINT]\0",
 										GetPlayerColorString(CasterSlot),
 										GetPlayerName(CasterSlot, 0),
 										ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2591,7 +2674,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									PingMinimapMy(&xunitx, &xunity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [item] %s%s|r|r[POINT]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use %s in fogged [item] %s%s|r[POINT]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -3119,7 +3202,7 @@ void SearchPlayersFogSelect()
 						unsigned int PlayerColorInt = GetPlayerColorUINT(i);
 						PingMinimapMy(&itemx, &itemy, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 					}
-					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled [item] |c004B4B4B%s|r|r [%s]",
+					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled [item] |c004B4B4B%s|r [%s]",
 						GetPlayerColorString(i),
 						GetPlayerName(i, 0),
 						GetObjectName(selecteditem),
@@ -3246,7 +3329,7 @@ void SearchPlayersFogSelect()
 					{
 						BOOL possible = UnitClick.initialVisibled || selectedunit == LatestVisibledUnits[i];
 
-						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled %s%s|r|r [%s]\0",
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled %s%s|r [%s]\0",
 							GetPlayerColorString(i),
 							GetPlayerName(i, 0),
 							GetPlayerColorString(OwnedPlayerSlot),
@@ -3406,7 +3489,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled %s%s|r|r [%s]",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select invisibled %s%s|r [%s]",
 									GetPlayerColorString(i),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(OwnedPlayerSlot),
@@ -3442,7 +3525,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select fogged %s%s|r|r [%s]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r select fogged %s%s|r [%s]\0",
 									GetPlayerColorString(i),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(OwnedPlayerSlot),
