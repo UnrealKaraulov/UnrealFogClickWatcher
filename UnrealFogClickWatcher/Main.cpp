@@ -61,7 +61,7 @@ int LoggingType = 0;
 
 BOOL BB_CODE_FORMAT_OUTPUT = TRUE;
 
-void replaceAll(std::string & str, const std::string& from, const std::string& to)
+void replaceAll(std::string& str, const std::string& from, const std::string& to)
 {
 	size_t start_pos = 0;
 	while ((start_pos = str.find(from, start_pos)) != std::string::npos)
@@ -180,7 +180,7 @@ BOOL DetectOwnItems = FALSE;
 
 BOOL DetectPointClicks = FALSE;
 
-BOOL DetectMeepoKey = TRUE;
+int TechiesDetonateId = 0xD024C;
 
 BOOL DebugLog = FALSE;
 
@@ -1043,7 +1043,7 @@ float GetUnitTimer(int unitaddr)
 	return *(float*)(unitdataddr + 0xA0);
 }
 
-typedef int(__fastcall * pGetSomeAddr)(UINT a1, UINT a2);
+typedef int(__fastcall* pGetSomeAddr)(UINT a1, UINT a2);
 pGetSomeAddr GetSomeAddr;
 
 
@@ -1549,7 +1549,7 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 		// Понадобится Cheat Engine
 		// Быстрый поиск можно - отключить
 		// Поставить "минусы" на все типы памяти
-		// Ввести 6F3C83E0 (к примеру)
+		// Ввести 6F3C83E0 (к примеру, Game.dll+0x3C83E0)
 		// Найти в war3map
 		// Пройтись до начала массива и указать его адрес далее
 
@@ -1557,7 +1557,7 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 		// Второй вариант
 		// Понадобится Cheat Engine с отладчиком VEH 
 		// Установить точку останова на любую JASS нативу
-		// Возврат ищем откуда взялся адрес, там ищем начало массива
+		// По возврату ищем откуда взялся адрес для вызова, там ищем начало массива
 		// Указать адрес ниже
 
 		// Третий вариант
@@ -1708,6 +1708,12 @@ pGetSpellAbilityId GetSpellAbilityId_real;
 
 typedef int(__cdecl* pGetTriggerEventId)();
 pGetTriggerEventId GetTriggerEventId_real;
+
+typedef int(__cdecl* pGetTriggerPlayer)();
+pGetTriggerPlayer GetTriggerPlayer;
+
+typedef int(__cdecl* pGetPlayerId)(int whichPlayer);
+pGetPlayerId GetPlayerId;
 
 typedef int(__cdecl* pClearTextMessages)();
 pClearTextMessages ClearTextMessages_real;
@@ -2017,43 +2023,6 @@ void GetItemLocation3D(int itemaddr, float* x, float* y, float* z)
 	}
 }
 
-/*void GetUnitLocation2D(int unitaddr, float* x, float* y)
-{
-	if (unitaddr)
-	{
-		*x = *(float*)(unitaddr + 0x284);
-		*y = *(float*)(unitaddr + 0x288);
-	}
-	else
-	{
-		*x = 0.0;
-		*y = 0.0;
-	}
-}
-
-void GetItemLocation2D(int itemaddr, float* x, float* y)
-{
-	if (itemaddr)
-	{
-		int iteminfo = *(int*)(itemaddr + 0x28);
-		if (iteminfo)
-		{
-			*x = *(float*)(iteminfo + 0x88);
-			*y = *(float*)(iteminfo + 0x8C);
-		}
-		else
-		{
-			*x = 0.0;
-			*y = 0.0;
-		}
-	}
-	else
-	{
-		*x = 0.0;
-		*y = 0.0;
-	}
-}*/
-
 float Distance3D(float x1, float y1, float z1, float x2, float y2, float z2)
 {
 	double d[] = { abs((double)x1 - (double)x2), abs((double)y1 - (double)y2), abs((double)z1 - (double)z2) };
@@ -2178,121 +2147,173 @@ int GetUnitByXY(float x, float y, int playerid, BOOL onlyunits = FALSE)
 }
 
 int LastEventID, LastSkillID, LastCasterID;
+int LastEventID_2, LastSkillID_2, LastCasterID_2;
 long long LastEventTime = 0;
 
 struct PlayerEvent
 {
 	int EventID;
 	int SkillID;
+	int OrderID;
 	int Caster;
 	int SelectedUnits;
 	long long Time;
 };
 
-PlayerEvent PlayerEventList[MAX_PLAYERS][20];
-int MeepoPoofID = 0x41304E38;
+
+std::vector<PlayerEvent> PlayerEventList[MAX_PLAYERS];
+
 //BOOL PlayerMeepoDetect[ 20 ];
-
-void ShiftLeftAndAddNewActionScanForBot(int PlayerID, PlayerEvent NewPlayerEvent)
+void ScanForTechiesBot(int PlayerID, PlayerEvent NewPlayerEvent)
 {
-	if (PlayerID >= 0 && PlayerID < MAX_PLAYERS && (IsReplayFound || GetLocalPlayerNumber() != PlayerID || DetectLocalPlayer))
+	if (TechiesDetonateId)
 	{
-		if (DebugLog)
-			WatcherLog("[DEBUG][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X \n", NewPlayerEvent.Time, NewPlayerEvent.EventID, NewPlayerEvent.SkillID, NewPlayerEvent.Caster);
+		PlayerEvent Event1 = PlayerEventList[PlayerID][19];
+		PlayerEvent Event2 = PlayerEventList[PlayerID][18];
+		PlayerEvent Event3 = PlayerEventList[PlayerID][17];
+		PlayerEvent Event4 = PlayerEventList[PlayerID][16];
 
-		if (NewPlayerEvent.EventID == 272)
+		/*WatcherLog( "[event1][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i \n", Event1.Time, Event1.EventID, Event1.SkillID, Event1.Caster,Event1.SelectedUnits );
+		WatcherLog( "[event2][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event2.Time, Event2.EventID, Event2.SkillID, Event2.Caster, Event1.SelectedUnits );
+		WatcherLog( "[event3][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event3.Time, Event3.EventID, Event3.SkillID, Event3.Caster, Event1.SelectedUnits );
+		WatcherLog( "[event4][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event4.Time, Event4.EventID, Event4.SkillID, Event4.Caster, Event1.SelectedUnits );
+		*/
+
+		if (Event1.OrderID == TechiesDetonateId &&
+			Event2.OrderID == TechiesDetonateId &&
+			(Event3.OrderID == TechiesDetonateId ||
+				Event4.OrderID == TechiesDetonateId))
 		{
-
-			for (int i = 0; i < 19; i++)
+			if (Event1.Caster != 0 &&
+				Event2.Caster != 0 &&
+				Event3.Caster != 0 &&
+				Event4.Caster != 0)
 			{
-				PlayerEventList[PlayerID][i] = PlayerEventList[PlayerID][i + 1];
-			}
-
-			PlayerEventList[PlayerID][19] = NewPlayerEvent;
-
-			PlayerEvent Event1 = PlayerEventList[PlayerID][19];
-			PlayerEvent Event2 = PlayerEventList[PlayerID][18];
-			PlayerEvent Event3 = PlayerEventList[PlayerID][17];
-			PlayerEvent Event4 = PlayerEventList[PlayerID][16];
-
-
-			/*WatcherLog( "[event1][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i \n", Event1.Time, Event1.EventID, Event1.SkillID, Event1.Caster,Event1.SelectedUnits );
-			WatcherLog( "[event2][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event2.Time, Event2.EventID, Event2.SkillID, Event2.Caster, Event1.SelectedUnits );
-			WatcherLog( "[event3][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event3.Time, Event3.EventID, Event3.SkillID, Event3.Caster, Event1.SelectedUnits );
-			WatcherLog( "[event4][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event4.Time, Event4.EventID, Event4.SkillID, Event4.Caster, Event1.SelectedUnits );
-			*/
-
-			if (DetectMeepoKey)
-			{
-				if (Event1.SkillID == MeepoPoofID &&
-					Event2.SkillID == MeepoPoofID &&
-					Event3.SkillID == MeepoPoofID &&
-					Event4.SkillID == MeepoPoofID)
+				if (Event1.Caster != Event2.Caster &&
+					Event1.Caster != Event3.Caster)
 				{
-					if (Event1.Caster != 0 &&
-						Event2.Caster != 0 &&
-						Event3.Caster != 0 &&
-						Event4.Caster != 0)
+					if (
+						Event1.Time < 200 &&
+						Event2.Time < 200 &&
+						(Event3.Time < 200 || Event4.Time < 200))
 					{
-						if (Event1.Caster != Event2.Caster &&
-							Event1.Caster != Event3.Caster &&
-							Event1.Caster != Event4.Caster &&
-							//	 Event2.Caster != Event3.Caster &&
-							Event3.Caster != Event2.Caster &&
-							Event3.Caster != Event4.Caster)
+						LatestAbilSpell = CurGameTime;
+
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use |c00EF1000TechiesBot|r!!\0",
+							GetPlayerColorString(PlayerID),
+							GetPlayerName(PlayerID, 0));
+
+						ActionTime = CurGameTime;
+						DisplayText(PrintBuffer, 14.4f);
+						SendPause();
+					}
+				}
+			}
+		}
+	}
+}
+
+int MeepoPoofID = 0x41304E38;
+void ScanForMeepoBot(int PlayerID, PlayerEvent NewPlayerEvent)
+{
+	if (MeepoPoofID != 0)
+	{
+		PlayerEvent Event1 = PlayerEventList[PlayerID][19];
+		PlayerEvent Event2 = PlayerEventList[PlayerID][18];
+		PlayerEvent Event3 = PlayerEventList[PlayerID][17];
+		PlayerEvent Event4 = PlayerEventList[PlayerID][16];
+
+		/*WatcherLog( "[event1][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i \n", Event1.Time, Event1.EventID, Event1.SkillID, Event1.Caster,Event1.SelectedUnits );
+		WatcherLog( "[event2][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event2.Time, Event2.EventID, Event2.SkillID, Event2.Caster, Event1.SelectedUnits );
+		WatcherLog( "[event3][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event3.Time, Event3.EventID, Event3.SkillID, Event3.Caster, Event1.SelectedUnits );
+		WatcherLog( "[event4][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event4.Time, Event4.EventID, Event4.SkillID, Event4.Caster, Event1.SelectedUnits );
+		*/
+
+		if (Event1.SkillID == MeepoPoofID &&
+			Event2.SkillID == MeepoPoofID &&
+			Event3.SkillID == MeepoPoofID &&
+			Event4.SkillID == MeepoPoofID)
+		{
+			if (Event1.Caster != 0 &&
+				Event2.Caster != 0 &&
+				Event3.Caster != 0 &&
+				Event4.Caster != 0)
+			{
+				if (Event1.Caster != Event2.Caster &&
+					Event1.Caster != Event3.Caster &&
+					Event1.Caster != Event4.Caster &&
+					//	 Event2.Caster != Event3.Caster &&
+					Event3.Caster != Event2.Caster &&
+					Event3.Caster != Event4.Caster)
+				{
+					if (DebugLog)
+					{
+						WatcherLog("[event1][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event1.Time, Event1.EventID, Event1.SkillID, Event1.Caster, Event1.SelectedUnits);
+						WatcherLog("[event2][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event2.Time, Event2.EventID, Event2.SkillID, Event2.Caster, Event2.SelectedUnits);
+						WatcherLog("[event3][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event3.Time, Event3.EventID, Event3.SkillID, Event3.Caster, Event3.SelectedUnits);
+						WatcherLog("[event4][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event4.Time, Event4.EventID, Event4.SkillID, Event4.Caster, Event4.SelectedUnits);
+					}
+					if (
+						Event2.Time < 120 &&
+						Event3.Time < 120 &&
+						Event4.Time < 120)
+					{
+						if (Event1.SelectedUnits == 1 &&
+							Event2.SelectedUnits == 1 &&
+							Event3.SelectedUnits == 1 &&
+							Event4.SelectedUnits == 1
+							)
 						{
-							if (DebugLog)
-							{
-								WatcherLog("[event1][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event1.Time, Event1.EventID, Event1.SkillID, Event1.Caster, Event1.SelectedUnits);
-								WatcherLog("[event2][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event2.Time, Event2.EventID, Event2.SkillID, Event2.Caster, Event2.SelectedUnits);
-								WatcherLog("[event3][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event3.Time, Event3.EventID, Event3.SkillID, Event3.Caster, Event3.SelectedUnits);
-								WatcherLog("[event4][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X - units %i\n", Event4.Time, Event4.EventID, Event4.SkillID, Event4.Caster, Event4.SelectedUnits);
-							}
-							if (
-								Event2.Time < 120 &&
-								Event3.Time < 120 &&
-								Event4.Time < 120)
-							{
-								if (Event1.SelectedUnits == 1 &&
-									Event2.SelectedUnits == 1 &&
-									Event3.SelectedUnits == 1 &&
-									Event4.SelectedUnits == 1
-									)
-								{
-									//if ( !PlayerMeepoDetect[ PlayerID ] )
-									//{
-									//	PlayerMeepoDetect[ PlayerID ] = TRUE;
-									LatestAbilSpell = CurGameTime;
+							//if ( !PlayerMeepoDetect[ PlayerID ] )
+							//{
+							//	PlayerMeepoDetect[ PlayerID ] = TRUE;
+							LatestAbilSpell = CurGameTime;
 
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use MeepoKey!!\0",
-										GetPlayerColorString(PlayerID),
-										GetPlayerName(PlayerID, 0));
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r use |c00EF1000MeepoKey|r!!\0",
+								GetPlayerColorString(PlayerID),
+								GetPlayerName(PlayerID, 0));
 
-									ActionTime = CurGameTime;
-									DisplayText(PrintBuffer, 14.4f);
-									SendPause();
-									//}
-								}
-							}
+							ActionTime = CurGameTime;
+							DisplayText(PrintBuffer, 14.4f);
+							SendPause();
+							//}
 						}
 					}
 				}
 			}
 		}
-
 	}
 }
-
-void BotDetector(int SkillID, int EventID, int CasterID)
+void AddNewPlayerEvent(int PlayerID, PlayerEvent NewPlayerEvent)
 {
-	// THE BOT DETECTOR!
-	if (MeepoPoofID == 0)
-		return;
+	if (DebugLog)
+		WatcherLog("[DEBUG][+%u ms][LogActions] : Event:%i - Skill:%X - Caster:%X \n", NewPlayerEvent.Time, NewPlayerEvent.EventID, NewPlayerEvent.SkillID, NewPlayerEvent.Caster);
 
-	LastEventID = EventID;
-	LastSkillID = SkillID;
-	LastCasterID = CasterID;
-	if (CasterID > 0)
+	if (PlayerEventList[PlayerID].size() < 20)
+	{
+		for (int i = 0; i < 19; i++)
+		{
+			PlayerEvent tmpPlayerEvent;
+			memset(&tmpPlayerEvent, 0, sizeof(PlayerEvent));
+			PlayerEventList[PlayerID].push_back(tmpPlayerEvent);
+		}
+		PlayerEventList[PlayerID].push_back(NewPlayerEvent);
+	}
+	else
+	{
+		PlayerEventList[PlayerID].erase(PlayerEventList[PlayerID].begin());
+		PlayerEventList[PlayerID].push_back(NewPlayerEvent);
+	}
+}
+void BotDetector(const int SkillID, const int EventID, const int OrderId, const int CasterID, const char* addinfo = "")
+{
+	WatcherLog("[+%ums][LogActions] : ", (CurGameTime - LastEventTime));
+	WatcherLog("Skill:%X - ", SkillID);
+	WatcherLog("EventID:%u - ", EventID);
+	WatcherLog("OrderId:%X - ", OrderId);
+	WatcherLog("CasterID:%X - %s\n", CasterID, addinfo);
+	// THE BOT DETECTOR!
+	if (CasterID > 0 && (EventID == 272 || EventID == 38))
 	{
 		int CasterAddr = GetHandleUnitAddress(CasterID, 0);
 		if (CasterAddr > 0)
@@ -2300,21 +2321,29 @@ void BotDetector(int SkillID, int EventID, int CasterID)
 			int CasterSlot = GetUnitOwnerSlot(CasterAddr);
 			if (CasterSlot < MAX_PLAYERS && CasterSlot >= 0)
 			{
-				if (EventID == 272)
+				if (CasterSlot >= 0 && CasterSlot < MAX_PLAYERS && (IsReplayFound || GetLocalPlayerNumber() != CasterSlot || DetectLocalPlayer))
 				{
 					PlayerEvent NewPlayerEvent;
 					NewPlayerEvent.Caster = CasterAddr;
 					NewPlayerEvent.EventID = EventID;
 					NewPlayerEvent.SkillID = SkillID;
+					NewPlayerEvent.OrderID = OrderId;
 					NewPlayerEvent.Time = llabs(CurGameTime - LastEventTime);
 					NewPlayerEvent.SelectedUnits = GetSelectedUnitCount(CasterSlot, FALSE);
-					ShiftLeftAndAddNewActionScanForBot(CasterSlot, NewPlayerEvent);
+					AddNewPlayerEvent(CasterSlot, NewPlayerEvent);
+					if (EventID == 272)
+					{
+						ScanForMeepoBot(CasterSlot, NewPlayerEvent);
+					}
+					else if (EventID == 38)
+					{
+						ScanForTechiesBot(CasterSlot, NewPlayerEvent);
+					}
 					LastEventTime = CurGameTime;
 				}
 			}
 		}
 	}
-	//WatcherLog( "[+%ims][LogActions] : Event:%i - Skill:%X - Caster:%X \n", GetGameTime( ) - LastEventTime, EventID, SkillID, CasterID );
 }
 
 struct ProcessNewAction
@@ -2693,11 +2722,13 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 			{
 				if (action.GetIssuedOrderId == 851971)
 				{
+					int slott = GetUnitOwnerSlot(CasterAddr);
+
 					LatestAbilSpell = CurGameTime;
 
 					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v17.6]|r: Player %s%s|r activate GuAI Maphack!!\0",
-						GetPlayerColorString(GetUnitOwnerSlot(CasterAddr)),
-						GetPlayerName(GetUnitOwnerSlot(CasterAddr), 0));
+						GetPlayerColorString(slott),
+						GetPlayerName(slott, 0));
 
 					ActionTime = CurGameTime;
 					DisplayText(PrintBuffer, 14.4f);
@@ -2765,20 +2796,52 @@ int __cdecl GetTriggerEventId_hooked()
 		return TriggerEventId;
 	}
 
-	int pid = GetUnitOwnerSlot(unitaddr);
 
-	if (pid < 0 || pid > MAX_PLAYERS)
-	{
-		GetTriggerEventIdCalled = FALSE;
-		return TriggerEventId;
-	}
-
-	int hPlayer = Player(pid);
-
+	bool anothercheck = false;
+	int pid = 0;
+	int hPlayer = GetTriggerPlayer();
 	if (hPlayer <= 0)
 	{
-		GetTriggerEventIdCalled = FALSE;
-		return TriggerEventId;
+		anothercheck = true;
+		pid = GetUnitOwnerSlot(unitaddr);
+
+		if (pid < 0 || pid > MAX_PLAYERS)
+		{
+			GetTriggerEventIdCalled = FALSE;
+			return TriggerEventId;
+		}
+
+		hPlayer = Player(pid);
+
+		if (hPlayer <= 0)
+		{
+			GetTriggerEventIdCalled = FALSE;
+			return TriggerEventId;
+		}
+	}
+
+	if (!anothercheck)
+	{
+		pid = GetPlayerId(hPlayer);
+
+		if (pid < 0 || pid > MAX_PLAYERS)
+		{
+			pid = GetUnitOwnerSlot(unitaddr);
+
+			if (pid < 0 || pid > MAX_PLAYERS)
+			{
+				GetTriggerEventIdCalled = FALSE;
+				return TriggerEventId;
+			}
+
+			hPlayer = Player(pid);
+
+			if (hPlayer <= 0)
+			{
+				GetTriggerEventIdCalled = FALSE;
+				return TriggerEventId;
+			}
+		}
 	}
 
 	if (GetPlayerControllerById(pid) != 0 || GetPlayerSlotStateById(pid) != 1)
@@ -2812,10 +2875,10 @@ int __cdecl GetTriggerEventId_hooked()
 	tmpProcessNewAction.GetSpellOrderTargetX = GetOrderPointX().fl;
 	tmpProcessNewAction.GetSpellOrderTargetY = GetOrderPointY().fl;
 
-	if (ProcessNewActionList.size() < 10000)
+	if (ProcessNewActionList.size() < 1000)
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 
-	BotDetector(tmpProcessNewAction.SkillID, tmpProcessNewAction.EventID, tmpProcessNewAction.CasterUnitHandle);
+	BotDetector(tmpProcessNewAction.SkillID, tmpProcessNewAction.EventID, tmpProcessNewAction.GetIssuedOrderId, tmpProcessNewAction.CasterUnitHandle, "GETTRIGGEREVENT");
 	GetTriggerEventIdCalled = FALSE;
 	return TriggerEventId;
 }
@@ -2860,20 +2923,51 @@ int __cdecl GetSpellAbilityId_hooked()
 		return SpellAbilityId;
 	}
 
-	int pid = GetUnitOwnerSlot(unitaddr);
-
-	if (pid < 0 || pid > MAX_PLAYERS)
-	{
-		GetSpellAbilityIdCalled = FALSE;
-		return SpellAbilityId;
-	}
-
-	int hPlayer = Player(pid);
-
+	bool anothercheck = false;
+	int pid = 0;
+	int hPlayer = GetTriggerPlayer();
 	if (hPlayer <= 0)
 	{
-		GetSpellAbilityIdCalled = FALSE;
-		return SpellAbilityId;
+		anothercheck = true;
+		pid = GetUnitOwnerSlot(unitaddr);
+
+		if (pid < 0 || pid > MAX_PLAYERS)
+		{
+			GetSpellAbilityIdCalled = FALSE;
+			return SpellAbilityId;
+		}
+
+		hPlayer = Player(pid);
+
+		if (hPlayer <= 0)
+		{
+			GetSpellAbilityIdCalled = FALSE;
+			return SpellAbilityId;
+		}
+	}
+
+	if (!anothercheck)
+	{
+		pid = GetPlayerId(hPlayer);
+
+		if (pid < 0 || pid > MAX_PLAYERS)
+		{
+			pid = GetUnitOwnerSlot(unitaddr);
+
+			if (pid < 0 || pid > MAX_PLAYERS)
+			{
+				GetSpellAbilityIdCalled = FALSE;
+				return SpellAbilityId;
+			}
+
+			hPlayer = Player(pid);
+
+			if (hPlayer <= 0)
+			{
+				GetSpellAbilityIdCalled = FALSE;
+				return SpellAbilityId;
+			}
+		}
 	}
 
 	if (GetPlayerControllerById(pid) != 0 || GetPlayerSlotStateById(pid) != 1)
@@ -2906,9 +3000,11 @@ int __cdecl GetSpellAbilityId_hooked()
 	tmpProcessNewAction.TargetUnitHandle = GetSpellTargetUnit();
 	tmpProcessNewAction.GetSpellOrderTargetX = GetSpellTargetX().fl;
 	tmpProcessNewAction.GetSpellOrderTargetY = GetSpellTargetY().fl;
-	if (ProcessNewActionList.size() < 10000)
+
+	if (ProcessNewActionList.size() < 1000)
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 
+	BotDetector(tmpProcessNewAction.SkillID, tmpProcessNewAction.EventID, tmpProcessNewAction.GetIssuedOrderId, tmpProcessNewAction.CasterUnitHandle, "GETSPELLABIL");
 	GetSpellAbilityIdCalled = FALSE;
 	return SpellAbilityId;
 }
@@ -3684,6 +3780,7 @@ void CreateFogClickWatcherConfig()
 	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityUnit", TRUE);
 	fogwatcherconf.WriteInt("FogClickWatcher", "UnitDetectionMethod", 1);
 	fogwatcherconf.WriteInt("FogClickWatcher", "MeepoPoofID", 0x41304E38);
+	fogwatcherconf.WriteInt("FogClickWatcher", "TechiesDetonateId", 0xD024C);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
 	fogwatcherconf.WriteBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
 	fogwatcherconf.WriteInt("FogClickWatcher", "DetectQuality", 3);
@@ -3735,6 +3832,8 @@ char* ReadJassSID(int JSID)
 	{
 		uint32_t offset = gameObj->jassStringId;
 		war3::JassThreadLocal* jtl = GetJassThreadLocal();
+		if (!jtl)
+			return NULL;
 		void* data = jtl->stringArr[offset];
 		war3::RCString* str = aero::generic_this_call<war3::RCString*>(GameDll + 0x459640, data, JSID);
 		if (str && str->stringRep)
@@ -3842,7 +3941,7 @@ void ProcessCmdString(std::string str)
 					}
 					if (str == "3")
 					{
-						helpindex = 2;
+						helpindex = 3;
 					}
 				}
 			}
@@ -3861,14 +3960,15 @@ void ProcessCmdString(std::string str)
 				DisplayText("|c00506000[DetectQuality]_______________: |c0020FF20[ 1 - 4 ]", 14.4f);
 				DisplayText("|c00506000[ReplayMoreSens]_____________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[PrintOrderName]_____________: |c0020FF20[ 0 / 1 ]", 14.4f);
+				DisplayText("|c00506000[SkipIllusions]________________: |c0020FF20[ 0 / 1 ]", 14.4f);
 			}
 			else if (helpindex == 2)
 			{
-				DisplayText("|c00506000[SkipIllusions]________________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectImpossibleClicks]______: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectItemDestroyer]_________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectOwnItems]_____________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectPointClicks]___________: |c0020FF20[ 0 / 1 ]", 14.4f);
+				DisplayText("|c00506000[TechiesDetonateId]___________: |c0020FF20[ 0 / DETONID ]", 14.4f);
 				DisplayText("|c00506000[DebugLog]___________________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[Debug]_______________________: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[PrintDetectedUnitOneTime]___: |c0020FF20[ 0 / 1 ]", 14.4f);
@@ -4083,6 +4183,7 @@ void LoadFogClickWatcherConfig()
 	DetectItemDestroyer = fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
 	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", FALSE);
 	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE);
+	TechiesDetonateId = fogwatcherconf.ReadInt("FogClickWatcher", "TechiesDetonateId", 0);
 	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE);
 	DebugModeEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", FALSE);
 	DisplayFalse = fogwatcherconf.ReadBool("FogClickWatcher", "DisplayFalse", TRUE);
@@ -4104,6 +4205,7 @@ void LoadFogClickWatcherConfig()
 	WatcherLog("Config:DetectItemDestroyer->%s\n", DetectItemDestroyer ? "TRUE" : "FALSE");
 	WatcherLog("Config:DetectOwnItems->%s\n", DetectOwnItems ? "TRUE" : "FALSE");
 	WatcherLog("Config:DetectPointClicks->%s\n", DetectPointClicks ? "TRUE" : "FALSE");
+	WatcherLog("Config:TechiesDetonateId->%i\n", TechiesDetonateId);
 	WatcherLog("Config:DebugLog->%s\n", DebugLog ? "TRUE" : "FALSE");
 	WatcherLog("Config:Debug->%s\n", DebugModeEnabled ? "TRUE" : "FALSE");
 	WatcherLog("Config:iCCup DoTA support->%s\n", ICCUP_DOTA_SUPPORT ? "TRUE" : "FALSE");
@@ -4145,6 +4247,8 @@ void Init126aVer()
 	GetIssuedOrderId_real = (pGetIssuedOrderId)(GameDll + 0x3C2C80);
 	GetAttacker_real = (pGetAttacker)(GameDll + 0x3C20F0);
 	GetTriggerUnit = (pGetTriggerUnit)(GameDll + 0x3BB240);
+	GetTriggerPlayer = (pGetTriggerPlayer)(GameDll + 0x3BB280);
+	GetPlayerId = (pGetPlayerId)(GameDll + 0x3C9640);
 	GetOrderTargetUnit = (pGetOrderTargetUnit)(GameDll + 0x3C3170);
 	GetOrderTargetItem = (pGetOrderTargetItem)(GameDll + 0x3C3040);
 	GetOrderPointX = (pGetOrderPointX)(GameDll + 0x3C2D00);
@@ -4385,7 +4489,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		if (GetModuleHandleA("FogDetectLauncher.exe"))
 		{
 			return TRUE;
-		}
+}
 #endif
 
 		if (!GetModuleHandleA("Game.dll"))

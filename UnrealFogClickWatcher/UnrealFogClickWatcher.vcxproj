@@ -73,15 +73,14 @@
       <SDLCheck>false</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <CallingConvention>Cdecl</CallingConvention>
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <OmitFramePointers>true</OmitFramePointers>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>Async</ExceptionHandling>
       <StructMemberAlignment>Default</StructMemberAlignment>
-      <FloatingPointModel>
-      </FloatingPointModel>
+      <FloatingPointModel>Fast</FloatingPointModel>
       <FloatingPointExceptions>
       </FloatingPointExceptions>
       <BrowseInformation>false</BrowseInformation>
@@ -107,6 +106,7 @@
       <SectionAlignment>
       </SectionAlignment>
       <Driver>NotSet</Driver>
+      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
