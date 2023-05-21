@@ -2307,11 +2307,11 @@ void AddNewPlayerEvent(int PlayerID, PlayerEvent NewPlayerEvent)
 }
 void BotDetector(const int SkillID, const int EventID, const int OrderId, const int CasterID, const char* addinfo = "")
 {
-	WatcherLog("[+%ums][LogActions] : ", (CurGameTime - LastEventTime));
+	/*WatcherLog("[+%ums][LogActions] : ", (CurGameTime - LastEventTime));
 	WatcherLog("Skill:%X - ", SkillID);
 	WatcherLog("EventID:%u - ", EventID);
 	WatcherLog("OrderId:%X - ", OrderId);
-	WatcherLog("CasterID:%X - %s\n", CasterID, addinfo);
+	WatcherLog("CasterID:%X - %s\n", CasterID, addinfo);*/
 	// THE BOT DETECTOR!
 	if (CasterID > 0 && (EventID == 272 || EventID == 38))
 	{
