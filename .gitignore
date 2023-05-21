@@ -19,3 +19,15 @@
 *.lib
 *.exp
 *.ipdb
+UnrealFogClickWatcher/Main.cpp.PVS-Studio.cfg
+UnrealFogClickWatcher/Main.cpp.PVS-Studio.cmd
+UnrealFogClickWatcher/Main.cpp.PVS-Studio.compilerVersion.cmd
+UnrealFogClickWatcher/Main.cpp.PVS-Studio.preprocess.cmd
+UnrealFogClickWatcher/Main.cpp.PVS-Studio.preprocess.cmd.rsp
+UnrealFogClickWatcher/Main.PVS-Studio.i
+UnrealFogClickWatcher/Main1.cpp.PVS-Studio.cfg
+UnrealFogClickWatcher/Main1.cpp.PVS-Studio.cmd
+UnrealFogClickWatcher/Main1.cpp.PVS-Studio.compilerVersion.cmd
+UnrealFogClickWatcher/Main1.cpp.PVS-Studio.preprocess.cmd
+UnrealFogClickWatcher/Main1.cpp.PVS-Studio.preprocess.cmd.rsp
+UnrealFogClickWatcher/Main1.PVS-Studio.i
