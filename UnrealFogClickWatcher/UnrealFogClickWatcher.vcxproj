@@ -66,21 +66,22 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
       <FunctionLevelLinking>
       </FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
       <CallingConvention>Cdecl</CallingConvention>
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <OmitFramePointers>true</OmitFramePointers>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <ExceptionHandling>Async</ExceptionHandling>
       <StructMemberAlignment>Default</StructMemberAlignment>
-      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointModel>
+      </FloatingPointModel>
       <FloatingPointExceptions>
       </FloatingPointExceptions>
       <BrowseInformation>false</BrowseInformation>
@@ -106,7 +107,6 @@
       <SectionAlignment>
       </SectionAlignment>
       <Driver>NotSet</Driver>
-      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
