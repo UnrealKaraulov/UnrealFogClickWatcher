@@ -1222,8 +1222,6 @@ void DisplayText(const std::string& szText, float fDuration)
 	unsigned int dwDuration = *((unsigned int*)&fDuration);
 
 
-	unsigned char* GAME_PrintToScreen = GameDll + 0x2F8E40;
-
 	int ms = (int)(ActionTime % 1000);
 	int seconds = (int)(ActionTime / 1000) % 60;
 	int minutes = (int)((ActionTime / (1000 * 60)) % 60);
@@ -1252,6 +1250,8 @@ void DisplayText(const std::string& szText, float fDuration)
 
 	typedef void(__fastcall* GAME_PrintToScreen_t)(int ecx, uint32_t edx, uint32_t arg1, uint32_t arg2, char* outLinePointer, uint32_t dwDuration, uint32_t arg5);
 	int ecx = *(int*)pW3XGlobalClass;
+
+	unsigned char* GAME_PrintToScreen = GameDll + 0x2F8E40;
 	GAME_PrintToScreen_t _GAME_PrintToScreen = (GAME_PrintToScreen_t)GAME_PrintToScreen;
 	_GAME_PrintToScreen(ecx, 0x0, 0x0, 0x0, outLineStr.data(), dwDuration, 0xFFFFFFFF);
 }
@@ -1657,8 +1657,24 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 			}
 		}
 
-		// Список JASS функций в iCCup Dota 403
+		// Список JASS функций в iCCup Dota 403 , 404
 		if (module && *(int*)(module + 0x1047DC8) == (int)(GameDll + 0x3B3E50))
+		{
+			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 403]");
+			unsigned char* StartAddr = module + 0x1047DC8;
+			while (*(int*)StartAddr != 0)
+			{
+				if (*(int*)StartAddr == oldaddress)
+				{
+					*(int*)StartAddr = newaddress;
+					return oldaddress;
+				}
+				StartAddr += 4;
+			}
+		}
+
+		// Список JASS функций в iCCup Dota 407
+		if (module && *(int*)(module + 0x1047DC8) == (int)(GameDll + 0x3C8F00))
 		{
 			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 403]");
 			unsigned char* StartAddr = module + 0x1047DC8;
@@ -2029,6 +2045,24 @@ void GetUnitLocation3D(int unitaddr, float* x, float* y, float* z)
 		*x = 0.0f;
 		*y = 0.0f;
 		*z = 0.0f;
+	}
+}
+
+
+
+void GetUnitLocation3D(int unitaddr, float& x, float& y, float& z)
+{
+	if (unitaddr)
+	{
+		x = *(float*)(unitaddr + 0x284);
+		y = *(float*)(unitaddr + 0x288);
+		z = *(float*)(unitaddr + 0x28C);
+	}
+	else
+	{
+		x = 0.0f;
+		y = 0.0f;
+		z = 0.0f;
 	}
 }
 
@@ -3953,11 +3987,16 @@ void* __stdcall DllSelfUnloading(void* hModule)
 
 long long LastCmdGameTime = 0;
 
+int PrintCoordUnit = 0;
+float PrintCoordX = 0.0f;
+float PrintCoordY = 0.0f;
+float PrintCoordZ = 0.0f;
+
 void ProcessCmdString(std::string str)
 {
 	if (str == "-help" || str == "-foghelp")
 	{
-		DisplayText("|c00FF2000[FogCW v18.4 by UnrealKaraulov]", 14.4f);
+		DisplayText("|c00FF2000[FogCW v18.4 by Karaulov]", 14.4f);
 
 		DisplayText("|c00FFFFFF-fogtoggle_______|c00AAFFAAEnable/Disable FogClickWatcher", 14.4f);
 		DisplayText("|c00FFFFFF-fogunload______|c00FFAAAAForce unload FogClickWatcher|c00FF0000[!!!CAN CRASH GAME!!!]|r", 14.4f);
@@ -3970,17 +4009,32 @@ void ProcessCmdString(std::string str)
 
 		if (FogClickEnabled)
 		{
-			DisplayText("|c00FF2000[FogCW v18.4 by UnrealKaraulov] : |c0020FF20ENABLED", 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.4] : |c0020FF20ENABLED", 14.4f);
 		}
 		else
 		{
-			DisplayText("|c00FF2000[FogCW v18.4 by UnrealKaraulov] : |c00FF2020DISABLED", 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.4] : |c00FF2020DISABLED", 14.4f);
 		}
 	}
 	else if (str == "-fogunload")
 	{
-		DisplayText("|c00FF2000[FogCW v18.4 by UnrealKaraulov] : |c00FF2020UNLOADED FROM MEMORY", 14.4f);
+		DisplayText("|c00FF2000[FogCW v18.4] : |c00FF2020UNLOADED FROM MEMORY", 14.4f);
 		DllSelfUnloading(MainModule);
+	}
+	else if (str == "-printcoord")
+	{
+		int unit = GetSelectedUnit(GetLocalPlayerNumber());
+		float x, y, z;
+		GetUnitLocation3D(unit, x, y, z);
+
+		int dist = (int)(Distance3D(x, y, z, PrintCoordX, PrintCoordY, PrintCoordZ) + 0.5f);
+		int dist2 = (int)(Distance2D(x, y, PrintCoordX, PrintCoordY) + 0.5f);
+		DisplayText("|c00FF2000[FogCW v18.4] : |c00FF2020 Coords: " + std::to_string(x) + "/" + std::to_string(y) + ".Dist:" + std::to_string(dist) + "/" + std::to_string(dist2), 14.4f);
+
+		PrintCoordX = x;
+		PrintCoordY = y;
+		PrintCoordZ = z;
+		PrintCoordUnit = unit;
 	}
 	else if (str.starts_with("-fogoption"))
 	{
@@ -4403,7 +4457,7 @@ void ProcessFogWatcher()
 
 			WatcherLog("Watch fog clicks for Game id: %i. Map name: %s.\n", GameID++, MapFileName);
 
-			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v18.4 by UnrealKaraulov][1.26a]: Initialized.|r\0");
+			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v18.4][1.26a]: Initialized.|r\0");
 			ActionTime = 0;
 			DisplayText(PrintBuffer, 14.4f);
 			if (IsReplayMode())
@@ -4548,7 +4602,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		if (GetModuleHandleA("FogDetectLauncher.exe"))
 		{
 			return TRUE;
-}
+		}
 #endif
 
 		if (!GetModuleHandleA("Game.dll"))
@@ -4598,7 +4652,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 			}
 
 			UnhookWindowsHookEx(hhookSysMsg);
-		}
+	}
 	}
 
 	return TRUE;
