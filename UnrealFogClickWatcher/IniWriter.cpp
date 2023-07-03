@@ -31,7 +31,7 @@ void CIniWriter::WriteFloat(const char* szSection, const  char* szKey, float flt
 
 	WritePrivateProfileStringA(szSection, szKey, FixedValue.c_str(), m_szFileName.c_str());
 }
-void CIniWriter::WriteBool(const char* szSection, const  char* szKey, int bolValue)
+void CIniWriter::WriteBool(const char* szSection, const  char* szKey, bool bolValue)
 {
 	char szValue[255];
 	sprintf_s(szValue, 255, "%s", bolValue ? "true" : "false");

@@ -43,7 +43,7 @@ typedef LONG(WINAPI* pNtQIT)(HANDLE, LONG, PVOID, ULONG, PULONG);
 
 #define ThreadQuerySetWin32StartAddress 9
 
-BOOL IsReplayFound = FALSE;
+bool IsReplayFound = false;
 
 char PrintBuffer[2048];
 
@@ -59,7 +59,7 @@ long long StartGameTime = 0;
 
 int LoggingType = 0;
 
-BOOL BB_CODE_FORMAT_OUTPUT = TRUE;
+bool BB_CODE_FORMAT_OUTPUT = true;
 
 void replaceAll(std::string& str, const std::string& from, const std::string& to)
 {
@@ -152,11 +152,11 @@ HMODULE MainModule = 0;
 
 const char* MapFileName = "";
 
-BOOL GameStarted = FALSE;
+bool GameStarted = false;
 
-BOOL GameStartedReally = FALSE;
+bool GameStartedReally = false;
 
-BOOL FogClickEnabled = TRUE;
+bool FogClickEnabled = true;
 
 unsigned char* pJassEnvAddress = 0;
 
@@ -166,45 +166,45 @@ unsigned char* pPrintText2 = 0;
 
 int GameVersion = 0x126a;
 
-BOOL DetectRightClickOnlyHeroes = TRUE;
+bool DetectRightClickOnlyHeroes = true;
 
-BOOL SkipIllusions = TRUE;
+bool SkipIllusions = true;
 
-BOOL MinimapPingFogClick = FALSE;
+bool MinimapPingFogClick = false;
 
-BOOL DetectImpossibleClicks = FALSE;
+bool DetectImpossibleClicks = false;
 
-BOOL DetectItemDestroyer = FALSE;
+bool DetectItemDestroyer = false;
 
-BOOL DetectOwnItems = FALSE;
+bool DetectOwnItems = false;
 
-BOOL DetectPointClicks = FALSE;
+bool DetectPointClicks = false;
 
 int TechiesDetonateId = 0xD024C;
 
-BOOL DebugLog = FALSE;
+bool DebugLog = false;
 
-BOOL DebugModeEnabled = FALSE;
+bool DebugModeEnabled = false;
 
-BOOL DisplayFalse = TRUE;
+bool DisplayFalse = true;
 
-BOOL ICCUP_DOTA_SUPPORT = FALSE;
+bool ICCUP_DOTA_SUPPORT = false;
 
-BOOL ReplayPauseOnDetect = TRUE;
+bool ReplayPauseOnDetect = true;
 
-BOOL PrintDetectedUnitOneTime = TRUE;
+bool PrintDetectedUnitOneTime = true;
 
-BOOL FullEventHookProcess = TRUE;
+bool FullEventHookProcess = true;
 
 int DetectQuality = 3;
 
-BOOL ReplayMoreSens = TRUE;
+bool ReplayMoreSens = true;
 
-BOOL ExceptionFilterHooked = FALSE;
+bool ExceptionFilterHooked = false;
 
 float DefaultCircleScale = 72.0f;
 
-BOOL DetectLocalPlayer = FALSE;
+bool DetectLocalPlayer = false;
 
 long long CurGameTime = 0;
 
@@ -233,18 +233,18 @@ unsigned int MAX_CLICK_HISTORY_ARRAY = 500;
 
 struct UnitSelectedStruct
 {
-	int PlayerNum;
+	unsigned char PlayerNum;
 	int UnitAddr;
-	int SelectCount;
+	char SelectCount;
 	long long LatestTime;
-	BOOL initialVisibled;
+	bool initialVisibled;
 };
 
 struct FogHelper
 {
 	int UnitAddr;
 	long long LatestTime[MAX_PLAYERS];
-	BOOL FogState[MAX_PLAYERS][3];
+	bool FogState[MAX_PLAYERS][3];
 };
 
 std::vector<UnitSelectedStruct> UnitClickList;
@@ -517,7 +517,7 @@ long long GetGameTime()
 }
 
 
-BOOL PrintOrderName = FALSE;
+bool PrintOrderName = false;
 
 std::string ConvertIdToString(int id)
 {
@@ -955,48 +955,46 @@ void FillUnitCountAndUnitArray()
 }
 
 
-BOOL IsUnitDead(int unitaddr)
+bool IsUnitDead(int unitaddr)
 {
 	if (unitaddr > 0)
 	{
 		unsigned int unitflag = *(unsigned int*)(unitaddr + 0x5C);
-		BOOL UnitNotDead = ((unitflag & 0x100u) == 0);
-		return UnitNotDead == FALSE;
+		return !((unitflag & 0x100u) == 0);
 	}
-	return TRUE;
+	return true;
 }
 
-BOOL IsUnitTower(int unitaddr)
+bool IsUnitTower(int unitaddr)
 {
 	if (unitaddr)
 	{
 		unsigned int unitflag = *(unsigned int*)(unitaddr + 0x5C);
-		BOOL UnitNotTower = ((unitflag & 0x10000u) == 0);
-		return UnitNotTower == FALSE;
+		return !((unitflag & 0x10000u) == 0);
 	}
-	return TRUE;
+	return true;
 }
 
-BOOL UnitHaveItems(int unitaddr)
+bool UnitHaveItems(int unitaddr)
 {
 	if (unitaddr)
 	{
 		return *(int*)(unitaddr + 0x1F8) > 0;
 	}
-	return FALSE;
+	return false;
 }
 
-BOOL UnitHaveAttack(int unitaddr)
+bool UnitHaveAttack(int unitaddr)
 {
 	if (unitaddr)
 	{
 		return *(int*)(unitaddr + 0x1e8) > 0;
 	}
-	return FALSE;
+	return false;
 }
 
 
-BOOL IsHero(int unitaddr)
+bool IsHero(int unitaddr)
 {
 	if (unitaddr)
 	{
@@ -1005,11 +1003,11 @@ BOOL IsHero(int unitaddr)
 		ishero = ishero - 64;
 		return ishero < 0x19;
 	}
-	return FALSE;
+	return false;
 }
 
 
-BOOL IsDetectedTower(int unitaddr)
+bool IsDetectedTower(int unitaddr)
 {
 	if (unitaddr)
 	{
@@ -1017,15 +1015,15 @@ BOOL IsDetectedTower(int unitaddr)
 		unsigned int unitflag2 = *(unsigned int*)(unitaddr + 32);
 		if (IsUnitTower(unitaddr))
 		{
-			//BOOL UnitNotVulnerable = ((unitflag2 & 0x8u) == 0);
-			BOOL UnitClickable = ((unitflag2 & 0x4u) == 0);
+			//bool UnitNotVulnerable = ((unitflag2 & 0x8u) == 0);
+			bool UnitClickable = ((unitflag2 & 0x4u) == 0);
 			if (/*!UnitNotVulnerable && */!UnitClickable)
 			{
 				return !IsHero(unitaddr)/* && !UnitHaveItems(unitaddr) && UnitHaveAttack(unitaddr)*/;
 			}
 		}
 	}
-	return FALSE;
+	return false;
 }
 
 
@@ -1065,7 +1063,7 @@ int ConvertHandle(int handle)
 }
 
 
-BOOL __stdcall IsNotBadUnit(int _unitaddr)
+bool __stdcall IsNotBadUnit(int _unitaddr)
 {
 	if (_unitaddr > 0)
 	{
@@ -1097,23 +1095,23 @@ BOOL __stdcall IsNotBadUnit(int _unitaddr)
 
 
 			//if (unitflag & 1u)
-			//	return FALSE;
+			//	return false;
 
 			//if (!(unitflag & 2u))
-			//	return FALSE;
+			//	return false;
 
 			//if (unitflag2 & 0x100u)
-			//	return FALSE;
+			//	return false;
 
 
 			return !IsUnitDead(_unitaddr);
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOL IsNotBadItem(int itemaddr)
+bool IsNotBadItem(int itemaddr)
 {
 	if (itemaddr > 0)
 	{
@@ -1130,23 +1128,23 @@ BOOL IsNotBadItem(int itemaddr)
 			int xaddraddr = (int)&ItemVtable;
 
 			if (*(BYTE*)xaddraddr != *(BYTE*)itemaddr)
-				return FALSE;
+				return false;
 			else if (*(BYTE*)(xaddraddr + 1) != *(BYTE*)(itemaddr + 1))
-				return FALSE;
+				return false;
 			else if (*(BYTE*)(xaddraddr + 2) != *(BYTE*)(itemaddr + 2))
-				return FALSE;
+				return false;
 			else if (*(BYTE*)(xaddraddr + 3) != *(BYTE*)(itemaddr + 3))
-				return FALSE;
+				return false;
 
 			if (*(int*)(itemaddr + 0x20) & 1)
-				return FALSE;
+				return false;
 
 			float hitpoint = *(float*)(itemaddr + 0x58);
 			return hitpoint > 0.0f;
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
 
@@ -1191,16 +1189,9 @@ bool __cdecl IsUnitVisibleToPlayer(unsigned char* unitaddr, unsigned char* playe
 }
 
 typedef int(__cdecl* pIsUnitSelected)(int unitaddr, int playerdataaddr);
-pIsUnitSelected IsUnitSelectedReal;
+pIsUnitSelected IsUnitSelected;
 
-
-BOOL __fastcall IsUnitSelected(int unitaddr, int playerdataaddr)
-{
-	return IsUnitSelectedReal(unitaddr, playerdataaddr);
-}
-
-
-int IsGame()
+bool IsGame()
 {
 	if (!GameDll)
 		return 0;
@@ -1281,7 +1272,7 @@ int GetSelectedItem(int slot)
 
 int UnitDetectionMethod = 1;
 
-int GetSelectedUnitCount(int slot, BOOL Smaller = TRUE)
+int GetSelectedUnitCount(int slot, bool Smaller = true)
 {
 	int plr = GetPlayerByNumber(slot);
 	if (plr != 0)
@@ -1336,7 +1327,7 @@ int GetSelectedUnit(int slot)
 					&& (unitcount > 0 || unitcount2 > 0)
 					)
 				{
-					if (IsUnitSelected(unit1, PlayerData1))
+					if (IsUnitSelected(unit1, PlayerData1) > 0)
 						return unit1;
 				}
 
@@ -1345,7 +1336,7 @@ int GetSelectedUnit(int slot)
 					&& IsNotBadUnit(unit2)
 					&& (unitcount > 0 || unitcount2 > 0))
 				{
-					if (IsUnitSelected(unit2, PlayerData1))
+					if (IsUnitSelected(unit2, PlayerData1) > 0)
 						return unit2;
 				}
 
@@ -1359,7 +1350,7 @@ int GetSelectedUnit(int slot)
 				int unitaddr = unit2;
 				if (unitaddr > 0 && unitcount == 1 && unitcount2 == 1)
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1) > 0)
 					{
 						return unitaddr;
 					}
@@ -1384,7 +1375,7 @@ int GetSelectedUnit(int slot)
 				int unitaddr = unit1;
 				if (unitaddr > 0 && (unitcount == 1 || unitcount2 == 1))
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1) > 0)
 					{
 						return unitaddr;
 					}
@@ -1392,7 +1383,7 @@ int GetSelectedUnit(int slot)
 				unitaddr = unit2;
 				if (unitaddr > 0 && (unitcount == 1 || unitcount2 == 1))
 				{
-					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1))
+					if (IsNotBadUnit(unitaddr) && IsUnitSelected(unitaddr, PlayerData1) > 0)
 					{
 						return unitaddr;
 					}
@@ -1676,7 +1667,23 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 		// Список JASS функций в iCCup Dota 407
 		if (module && *(int*)(module + 0x1047DC8) == (int)(GameDll + 0x3C8F00))
 		{
-			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 403]");
+			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 407]");
+			unsigned char* StartAddr = module + 0x1047DC8;
+			while (*(int*)StartAddr != 0)
+			{
+				if (*(int*)StartAddr == oldaddress)
+				{
+					*(int*)StartAddr = newaddress;
+					return oldaddress;
+				}
+				StartAddr += 4;
+			}
+		}
+
+		// Список JASS функций в iCCup Dota 409
+		if (module && *(int*)(module + 0x1048DC8) == (int)(GameDll + 0x3C8F00))
+		{
+			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 409]");
 			unsigned char* StartAddr = module + 0x1047DC8;
 			while (*(int*)StartAddr != 0)
 			{
@@ -1700,7 +1707,7 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 			if (FirstAddress > 0)
 			{
 				int NextAddress = FirstAddress;
-				while (TRUE)
+				while (true)
 				{
 					if (*(int*)(NextAddress + 12) == oldaddress)
 					{
@@ -1738,7 +1745,7 @@ int RevertJassNativeHook(int newaddress, int oldaddress)
 //			if (FirstAddress > 0)
 //			{
 //				int NextAddress = FirstAddress;
-//				while (TRUE)
+//				while (true)
 //				{
 //					if (*(char**)(NextAddress + 8) == name)
 //					{
@@ -1886,12 +1893,12 @@ int GetPlayerSlotStateById(int player_id)
 //			return IsPlayerEnemy_real(hplayer1, hplayer2) && IsPlayerEnemy_real(hplayer2, hplayer1);
 //		}
 //	}
-//	return FALSE;
+//	return false;
 //}
 
 struct PLAYER_ENEMY_CACHE
 {
-	BOOL enemystate[TOTAL_MAX_PLAYERS_ARRAY];
+	bool enemystate[TOTAL_MAX_PLAYERS_ARRAY];
 	long long checktime[TOTAL_MAX_PLAYERS_ARRAY];
 };
 
@@ -1901,7 +1908,7 @@ BOOL __fastcall IsPlayerEnemyById(int id1, int id2)
 {
 	if (id1 < 0 || id2 < 0 || id1 >= TOTAL_MAX_PLAYERS_ARRAY || id2 >= TOTAL_MAX_PLAYERS_ARRAY)
 	{
-		return FALSE;
+		return false;
 	}
 
 	if (player_enemy_cache[id1].checktime[id2] == 0 ||
@@ -1913,11 +1920,11 @@ BOOL __fastcall IsPlayerEnemyById(int id1, int id2)
 
 		if (whichPlayer1 <= 0 || whichPlayer2 <= 0)
 		{
-			player_enemy_cache[id1].enemystate[id2] = FALSE;
+			player_enemy_cache[id1].enemystate[id2] = false;
 		}
 		else
 		{
-			BOOL isEnemy = IsPlayerEnemy_real(whichPlayer1, whichPlayer2) && IsPlayerEnemy_real(whichPlayer2, whichPlayer1);
+			bool isEnemy = IsPlayerEnemy_real(whichPlayer1, whichPlayer2) && IsPlayerEnemy_real(whichPlayer2, whichPlayer1);
 			player_enemy_cache[id1].enemystate[id2] = isEnemy;
 		}
 	}
@@ -1965,11 +1972,11 @@ int GetItemOwner(int itemaddr)
 	return 0;
 }
 
-BOOL __cdecl IsFoggedToPlayerMy(float* pX, float* pY, int player)
+bool IsFoggedToPlayerMy(float* pX, float* pY, int player)
 {
 	if (player <= 0)
 	{
-		return FALSE;
+		return false;
 	}
 	// CENTER
 	float x1 = *pX;
@@ -1991,17 +1998,17 @@ BOOL __cdecl IsFoggedToPlayerMy(float* pX, float* pY, int player)
 	float x5 = x1;
 	float y5 = y1 - 128;
 
-	BOOL CheckCenter = IsFoggedToPlayerReal(&x1, &y1, player);
+	bool CheckCenter = IsFoggedToPlayerReal(&x1, &y1, player);
 
 	if (DetectQuality >= 2 && CheckCenter)
 	{
 		if (ReplayMoreSens && IsReplayFound)
 			return CheckCenter;
 
-		BOOL CheckRight = IsFoggedToPlayerReal(&x2, &y2, player);
-		BOOL CheckLeft = IsFoggedToPlayerReal(&x3, &y3, player);
-		BOOL CheckTop = IsFoggedToPlayerReal(&x4, &y4, player);
-		BOOL CheckBot = IsFoggedToPlayerReal(&x5, &y5, player);
+		bool CheckRight = IsFoggedToPlayerReal(&x2, &y2, player);
+		bool CheckLeft = IsFoggedToPlayerReal(&x3, &y3, player);
+		bool CheckTop = IsFoggedToPlayerReal(&x4, &y4, player);
+		bool CheckBot = IsFoggedToPlayerReal(&x5, &y5, player);
 
 		if (DetectQuality > 3 && CheckRight && CheckLeft && CheckTop && CheckBot)
 		{
@@ -2139,9 +2146,9 @@ int GetItemByXY(float x, float y, int player)
 	return 0;
 }
 
-BOOL ImpossibleClick = FALSE;
+bool ImpossibleClick = false;
 
-int GetUnitByXY(float x, float y, int playerid, BOOL onlyunits = FALSE)
+int GetUnitByXY(float x, float y, int playerid, bool onlyunits = false)
 {
 	if (!IsReplayFound && !DetectLocalPlayer && playerid == GetLocalPlayerNumber())
 		return 0;
@@ -2182,7 +2189,7 @@ int GetUnitByXY(float x, float y, int playerid, BOOL onlyunits = FALSE)
 				{
 					if (IsValidTowerDetect || IsPlayerEnemyById(playerid, unitowner))
 					{
-						ImpossibleClick = FALSE;
+						ImpossibleClick = false;
 						float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
 						GetUnitLocation3D(CurrentUnit, &unitx, &unity, &unitz);
 
@@ -2190,7 +2197,7 @@ int GetUnitByXY(float x, float y, int playerid, BOOL onlyunits = FALSE)
 						{
 							if (Distance2D(unitx, unity, x, y) < selectionCircle && Distance2D(unitx, unity, x, y) > 0.1)
 							{
-								ImpossibleClick = TRUE;
+								ImpossibleClick = true;
 								return CurrentUnit;
 							}
 						}
@@ -2235,7 +2242,7 @@ struct PlayerEvent
 
 std::vector<PlayerEvent> PlayerEventList[MAX_PLAYERS];
 
-//BOOL PlayerMeepoDetect[ 20 ];
+//bool PlayerMeepoDetect[ 20 ];
 void ScanForTechiesBot(int PlayerID, PlayerEvent NewPlayerEvent)
 {
 	if (TechiesDetonateId)
@@ -2338,7 +2345,7 @@ void ScanForMeepoBot(int PlayerID, PlayerEvent NewPlayerEvent)
 						{
 							//if ( !PlayerMeepoDetect[ PlayerID ] )
 							//{
-							//	PlayerMeepoDetect[ PlayerID ] = TRUE;
+							//	PlayerMeepoDetect[ PlayerID ] = true;
 							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.4]|r: Player %s%s|r use |c00EF1000MeepoKey|r!!\0",
 								GetPlayerColorString(PlayerID),
 								GetPlayerName(PlayerID, 0));
@@ -2392,7 +2399,7 @@ void BotDetector(const int SkillID, const int EventID, const int OrderId, const 
 			int CasterSlot = GetUnitOwnerSlot(CasterAddr);
 			if (CasterSlot < MAX_PLAYERS && CasterSlot >= 0)
 			{
-				WatcherLog("Selected units:%X - ", GetSelectedUnitCount(CasterSlot, FALSE));
+				WatcherLog("Selected units:%X - ", GetSelectedUnitCount(CasterSlot, false));
 			}
 		}
 	}
@@ -2414,7 +2421,7 @@ void BotDetector(const int SkillID, const int EventID, const int OrderId, const 
 					NewPlayerEvent.SkillID = SkillID;
 					NewPlayerEvent.OrderID = OrderId;
 					NewPlayerEvent.Time = llabs(CurGameTime - LastEventTime);
-					NewPlayerEvent.SelectedUnits = GetSelectedUnitCount(CasterSlot, FALSE);
+					NewPlayerEvent.SelectedUnits = GetSelectedUnitCount(CasterSlot, false);
 					AddNewPlayerEvent(CasterSlot, NewPlayerEvent);
 					if (EventID == 272)
 					{
@@ -2433,7 +2440,7 @@ void BotDetector(const int SkillID, const int EventID, const int OrderId, const 
 
 struct ProcessNewAction
 {
-	BOOL IsGetSpellAbilityId;
+	bool IsGetSpellAbilityId;
 	int CasterPlayerHandle;
 	int CasterUnitHandle;
 	int TargetUnitHandle;
@@ -2522,7 +2529,7 @@ void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 
 				float x = action.GetSpellOrderTargetX;
 				float y = action.GetSpellOrderTargetY;
-				int TargetAddr = GetUnitByXY(x, y, CasterOwner, TRUE);
+				int TargetAddr = GetUnitByXY(x, y, CasterOwner, true);
 
 				if (TargetAddr > 0 && (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))))
 				{
@@ -2583,14 +2590,14 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 		return;
 	if (action.EventID == 77 || action.EventID == 40)
 	{
-		BOOL IsItem = FALSE;
+		bool IsItem = false;
 		int TargetUnitHandle = action.TargetUnitHandle;
 
 		if (TargetUnitHandle <= 0)
 		{
 			TargetUnitHandle = action.TargetItemHandle;
 			if (TargetUnitHandle > 0)
-				IsItem = TRUE;
+				IsItem = true;
 			else
 			{
 				return;
@@ -2608,7 +2615,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 
 				if ((CasterSlot >= 0 && CasterSlot < MAX_PLAYERS) && (TargetSlot >= 0 && TargetSlot < TOTAL_MAX_PLAYERS_ARRAY) && Player(CasterSlot) > 0 && (IsItem || Player(TargetSlot) > 0))
 				{
-					BOOL IsOkay = IsItem ? (IsNotBadItem(TargetAddr) && !(action.GetIssuedOrderId >= 0xD0022 && action.GetIssuedOrderId <= 0xD0028))
+					bool IsOkay = IsItem ? (IsNotBadItem(TargetAddr) && !(action.GetIssuedOrderId >= 0xD0022 && action.GetIssuedOrderId <= 0xD0028))
 						: (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr))));
 
 					if (TargetSlot != CasterSlot && (IsReplayFound || CasterSlot != GetLocalPlayerNumber() || DetectLocalPlayer)
@@ -2710,7 +2717,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 				if ((CasterSlot >= 0 && CasterSlot < MAX_PLAYERS) && Player(CasterSlot) > 0)
 				{
 					int TargetAddr = GetUnitByXY(x, y, CasterSlot);
-					BOOL DetectionImpossibleClick = FALSE;
+					bool DetectionImpossibleClick = false;
 
 					if (TargetAddr > 0 && (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (DetectImpossibleClicks && IsDetectedTower(TargetAddr)) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))))
 					{
@@ -2722,7 +2729,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 								GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
 								if (DetectImpossibleClicks && IsDetectedTower(TargetAddr))
 								{
-									DetectionImpossibleClick = TRUE;
+									DetectionImpossibleClick = true;
 								}
 
 								if ((DetectPointClicks || DetectionImpossibleClick) && IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
@@ -2745,7 +2752,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 										ActionTime = CurGameTime;
 										DisplayText(PrintBuffer, 14.4f);
 									}
-									ImpossibleClick = FALSE;
+									ImpossibleClick = false;
 									SendPause();
 								}
 								else if (DetectPointClicks && !DetectionImpossibleClick && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
@@ -2845,14 +2852,14 @@ typedef std::chrono::high_resolution_clock Clock;
 
 std::chrono::time_point<std::chrono::high_resolution_clock> GetTriggerEventIdTime = Clock::now();
 
-BOOL GetTriggerEventIdCalled = FALSE;
+bool GetTriggerEventIdCalled = false;
 int __cdecl GetTriggerEventId_hooked()
 {
 	int TriggerEventId = GetTriggerEventId_real();
 
 	if (!GameStarted || !GameStartedReally || !FogClickEnabled || GetTriggerEventIdCalled)
 		return TriggerEventId;
-	GetTriggerEventIdCalled = TRUE;
+	GetTriggerEventIdCalled = true;
 
 	if (!FullEventHookProcess)
 	{
@@ -2860,7 +2867,7 @@ int __cdecl GetTriggerEventId_hooked()
 		auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - GetTriggerEventIdTime);
 		if (int_ms.count() <= 1)
 		{
-			GetTriggerEventIdCalled = FALSE;
+			GetTriggerEventIdCalled = false;
 			return TriggerEventId;
 		}
 	}
@@ -2871,7 +2878,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 	if (!tmpProcessNewAction.CasterUnitHandle)
 	{
-		GetTriggerEventIdCalled = FALSE;
+		GetTriggerEventIdCalled = false;
 		return TriggerEventId;
 	}
 
@@ -2879,7 +2886,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 	if (!unitaddr || !IsNotBadUnit(unitaddr))
 	{
-		GetTriggerEventIdCalled = FALSE;
+		GetTriggerEventIdCalled = false;
 		return TriggerEventId;
 	}
 
@@ -2894,7 +2901,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 		if (pid < 0 || pid > MAX_PLAYERS)
 		{
-			GetTriggerEventIdCalled = FALSE;
+			GetTriggerEventIdCalled = false;
 			return TriggerEventId;
 		}
 
@@ -2902,7 +2909,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 		if (hPlayer <= 0)
 		{
-			GetTriggerEventIdCalled = FALSE;
+			GetTriggerEventIdCalled = false;
 			return TriggerEventId;
 		}
 	}
@@ -2917,7 +2924,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 			if (pid < 0 || pid > MAX_PLAYERS)
 			{
-				GetTriggerEventIdCalled = FALSE;
+				GetTriggerEventIdCalled = false;
 				return TriggerEventId;
 			}
 
@@ -2925,7 +2932,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 			if (hPlayer <= 0)
 			{
-				GetTriggerEventIdCalled = FALSE;
+				GetTriggerEventIdCalled = false;
 				return TriggerEventId;
 			}
 		}
@@ -2933,7 +2940,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 	if (GetPlayerControllerById(pid) != 0 || GetPlayerSlotStateById(pid) != 1)
 	{
-		GetTriggerEventIdCalled = FALSE;
+		GetTriggerEventIdCalled = false;
 		return TriggerEventId;
 	}
 
@@ -2951,14 +2958,14 @@ int __cdecl GetTriggerEventId_hooked()
 			&& action.EventID == TriggerEventId
 			&& action.CasterUnitHandle == tmpProcessNewAction.CasterUnitHandle)
 		{
-			GetTriggerEventIdCalled = FALSE;
+			GetTriggerEventIdCalled = false;
 			return TriggerEventId;
 		}
 	}
 
 	tmpProcessNewAction.EventID = TriggerEventId;
 	tmpProcessNewAction.GetIssuedOrderId = GetIssuedOrderId_real();
-	tmpProcessNewAction.IsGetSpellAbilityId = FALSE;
+	tmpProcessNewAction.IsGetSpellAbilityId = false;
 	tmpProcessNewAction.SkillID = GetSpellAbilityId_real();
 	tmpProcessNewAction.TargetItemHandle = GetOrderTargetItem();
 	tmpProcessNewAction.TargetUnitHandle = GetOrderTargetUnit();
@@ -2969,20 +2976,20 @@ int __cdecl GetTriggerEventId_hooked()
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 
 	BotDetector(tmpProcessNewAction.SkillID, tmpProcessNewAction.EventID, tmpProcessNewAction.GetIssuedOrderId, tmpProcessNewAction.CasterUnitHandle, "GETTRIGGEREVENT");
-	GetTriggerEventIdCalled = FALSE;
+	GetTriggerEventIdCalled = false;
 	return TriggerEventId;
 }
 
 std::chrono::time_point<std::chrono::high_resolution_clock> GetSpellAbilityIdTime = Clock::now();
 
-BOOL GetSpellAbilityIdCalled = FALSE;
+bool GetSpellAbilityIdCalled = false;
 int __cdecl GetSpellAbilityId_hooked()
 {
 	int SpellAbilityId = GetSpellAbilityId_real();
 
 	if (!GameStarted || !GameStartedReally || !FogClickEnabled || GetSpellAbilityIdCalled)
 		return SpellAbilityId;
-	GetSpellAbilityIdCalled = TRUE;
+	GetSpellAbilityIdCalled = true;
 
 	if (!FullEventHookProcess)
 	{
@@ -2991,7 +2998,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 		if (int_ms.count() <= 1)
 		{
-			GetSpellAbilityIdCalled = FALSE;
+			GetSpellAbilityIdCalled = false;
 			return SpellAbilityId;
 		}
 	}
@@ -3002,7 +3009,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 	if (!tmpProcessNewAction.CasterUnitHandle)
 	{
-		GetSpellAbilityIdCalled = FALSE;
+		GetSpellAbilityIdCalled = false;
 		return SpellAbilityId;
 	}
 
@@ -3010,7 +3017,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 	if (!unitaddr || !IsNotBadUnit(unitaddr))
 	{
-		GetSpellAbilityIdCalled = FALSE;
+		GetSpellAbilityIdCalled = false;
 		return SpellAbilityId;
 	}
 
@@ -3024,7 +3031,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 		if (pid < 0 || pid > MAX_PLAYERS)
 		{
-			GetSpellAbilityIdCalled = FALSE;
+			GetSpellAbilityIdCalled = false;
 			return SpellAbilityId;
 		}
 
@@ -3032,7 +3039,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 		if (hPlayer <= 0)
 		{
-			GetSpellAbilityIdCalled = FALSE;
+			GetSpellAbilityIdCalled = false;
 			return SpellAbilityId;
 		}
 	}
@@ -3047,7 +3054,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 			if (pid < 0 || pid > MAX_PLAYERS)
 			{
-				GetSpellAbilityIdCalled = FALSE;
+				GetSpellAbilityIdCalled = false;
 				return SpellAbilityId;
 			}
 
@@ -3055,7 +3062,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 			if (hPlayer <= 0)
 			{
-				GetSpellAbilityIdCalled = FALSE;
+				GetSpellAbilityIdCalled = false;
 				return SpellAbilityId;
 			}
 		}
@@ -3063,7 +3070,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 	if (GetPlayerControllerById(pid) != 0 || GetPlayerSlotStateById(pid) != 1)
 	{
-		GetSpellAbilityIdCalled = FALSE;
+		GetSpellAbilityIdCalled = false;
 		return SpellAbilityId;
 	}
 
@@ -3081,14 +3088,14 @@ int __cdecl GetSpellAbilityId_hooked()
 			&& action.SkillID == SpellAbilityId
 			&& action.CasterUnitHandle == tmpProcessNewAction.CasterUnitHandle)
 		{
-			GetSpellAbilityIdCalled = FALSE;
+			GetSpellAbilityIdCalled = false;
 			return SpellAbilityId;
 		}
 	}
 
 	tmpProcessNewAction.EventID = GetTriggerEventId_real();
 	tmpProcessNewAction.GetIssuedOrderId = GetIssuedOrderId_real();
-	tmpProcessNewAction.IsGetSpellAbilityId = TRUE;
+	tmpProcessNewAction.IsGetSpellAbilityId = true;
 	tmpProcessNewAction.SkillID = SpellAbilityId;
 	tmpProcessNewAction.TargetItemHandle = GetOrderTargetItem();
 	tmpProcessNewAction.TargetUnitHandle = GetSpellTargetUnit();
@@ -3099,58 +3106,58 @@ int __cdecl GetSpellAbilityId_hooked()
 		ProcessNewActionList.push_back(tmpProcessNewAction);
 
 	BotDetector(tmpProcessNewAction.SkillID, tmpProcessNewAction.EventID, tmpProcessNewAction.GetIssuedOrderId, tmpProcessNewAction.CasterUnitHandle, "GETSPELLABIL");
-	GetSpellAbilityIdCalled = FALSE;
+	GetSpellAbilityIdCalled = false;
 	return SpellAbilityId;
 }
 
-BOOL GetIssuedOrderIdCalled = FALSE;
+bool GetIssuedOrderIdCalled = false;
 int __cdecl GetIssuedOrderId_hooked()
 {
 	int issuereal = GetIssuedOrderId_real();
 	if (GetIssuedOrderIdCalled)
 		return issuereal;
-	GetIssuedOrderIdCalled = TRUE;
+	GetIssuedOrderIdCalled = true;
 	if (GameStarted && GameStartedReally && FogClickEnabled)
 	{
 		GetTriggerEventId_hooked();
 	}
-	GetIssuedOrderIdCalled = FALSE;
+	GetIssuedOrderIdCalled = false;
 	return issuereal;
 }
 
-BOOL GetSpellAbilityUnitCalled = FALSE;
+bool GetSpellAbilityUnitCalled = false;
 int __cdecl GetSpellAbilityUnit_hooked()
 {
 	int spellreal = GetSpellAbilityUnit_real();
 	if (GetSpellAbilityUnitCalled)
 		return spellreal;
-	GetSpellAbilityUnitCalled = TRUE;
+	GetSpellAbilityUnitCalled = true;
 	if (GameStarted && GameStartedReally && FogClickEnabled)
 	{
 		if (GetSpellAbilityId_hooked() > 0)
 		{
-			GetSpellAbilityUnitCalled = FALSE;
+			GetSpellAbilityUnitCalled = false;
 			return spellreal;
 		}
 		GetTriggerEventId_hooked();
 	}
-	GetSpellAbilityUnitCalled = FALSE;
+	GetSpellAbilityUnitCalled = false;
 	return spellreal;
 }
 
-BOOL GetAttackerCalled = FALSE;
+bool GetAttackerCalled = false;
 int __cdecl GetAttacker_hooked()
 {
 	int attackreal = GetAttacker_real();
 	if (GetAttackerCalled)
 		return attackreal;
-	GetAttackerCalled = TRUE;
+	GetAttackerCalled = true;
 	if (GameStarted && GameStartedReally && FogClickEnabled)
 	{
 		GetTriggerEventId_hooked();
 		//GetSpellAbilityId_hooked( );
 	}
-	GetAttackerCalled = FALSE;
+	GetAttackerCalled = false;
 	return attackreal;
 }
 
@@ -3219,12 +3226,12 @@ void UpdateFogHelper()
 
 					GetUnitLocation3D(CurrentUnit, &unitx, &unity, &unitz);
 
-					BOOL FoundUnit = FALSE;
+					bool FoundUnit = false;
 					for (auto& UnitFogHelper : FogHelperList)
 					{
 						if (CurrentUnit == UnitFogHelper.UnitAddr)
 						{
-							FoundUnit = TRUE;
+							FoundUnit = true;
 							if (llabs(CurGameTime - UnitFogHelper.LatestTime[n]) > 300)
 							{
 								UnitFogHelper.LatestTime[n] = CurGameTime;
@@ -3261,9 +3268,9 @@ void UpdateFogHelper()
 						// Initial state is visible
 						for (int z = 0; z < MAX_PLAYERS; z++)
 						{
-							tmpghelp.FogState[z][0] = FALSE;
-							tmpghelp.FogState[z][1] = FALSE;
-							tmpghelp.FogState[z][2] = FALSE;
+							tmpghelp.FogState[z][0] = false;
+							tmpghelp.FogState[z][1] = false;
+							tmpghelp.FogState[z][2] = true;
 						}
 						tmpghelp.UnitAddr = CurrentUnit;
 
@@ -3517,7 +3524,7 @@ void SearchPlayersFogSelect()
 				{
 					if (llabs(CurGameTime - UnitClick.LatestTime) > 200 * DetectQuality)
 					{
-						BOOL possible = UnitClick.initialVisibled || selectedunit == LatestVisibledUnits[i];
+						bool possible = UnitClick.initialVisibled || selectedunit == LatestVisibledUnits[i];
 
 						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.4]|r: Player %s%s|r select invisibled %s%s|r [%s]\0",
 							GetPlayerColorString(i),
@@ -3585,8 +3592,8 @@ void SearchPlayersFogSelect()
 					ActionTime = CurGameTime;
 					DisplayText("FOG!" + std::to_string(i), 10.0f);
 				}
-				BOOL found = FALSE;
-				BOOL needcontinue = FALSE;
+				bool found = false;
+				bool needcontinue = false;
 
 				UnitSelectedStruct* tmpunitselected = NULL;
 
@@ -3596,7 +3603,7 @@ void SearchPlayersFogSelect()
 					{
 						if ((UnitClick.SelectCount >= 0 || UnitClick.SelectCount == -5) && UnitClick.UnitAddr == selectedunit)
 						{
-							found = TRUE;
+							found = true;
 							tmpunitselected = &UnitClick;
 							if (UnitClick.SelectCount == -5)
 								UnitClick.SelectCount = 0;
@@ -3610,7 +3617,7 @@ void SearchPlayersFogSelect()
 					{
 						if (UnitClick.LatestTime != 0 && llabs(CurGameTime - UnitClick.LatestTime) < 5000 && UnitClick.SelectCount == -1 && UnitClick.UnitAddr == selectedunit)
 						{
-							needcontinue = TRUE;
+							needcontinue = true;
 							break;
 						}
 					}
@@ -3623,7 +3630,7 @@ void SearchPlayersFogSelect()
 						ActionTime = CurGameTime;
 						DisplayText("BAD FOG!" + std::to_string(i), 10.0f);
 					}
-					needcontinue = TRUE;
+					needcontinue = true;
 				}
 
 				if (needcontinue)
@@ -3639,11 +3646,11 @@ void SearchPlayersFogSelect()
 						DisplayText("NEW FOG!", 10.0f);
 					}
 					UnitSelectedStruct tmpus;
-					tmpus.PlayerNum = i;
+					tmpus.PlayerNum = (unsigned char)i;
 					tmpus.UnitAddr = selectedunit;
 					tmpus.LatestTime = CurGameTime;
 					tmpus.SelectCount = 0;
-					tmpus.initialVisibled = FALSE;
+					tmpus.initialVisibled = false;
 
 					if (UnitClickList.size() >= MAX_CLICK_HISTORY_ARRAY)
 					{
@@ -3662,7 +3669,8 @@ void SearchPlayersFogSelect()
 					{
 						if (llabs(CurGameTime - tmpunitselected->LatestTime) > 10 * DetectQuality)
 						{
-							tmpunitselected->SelectCount++;
+							if (tmpunitselected->SelectCount < MAXCHAR)
+								tmpunitselected->SelectCount++;
 							tmpunitselected->LatestTime = CurGameTime;
 						}
 					}
@@ -3670,7 +3678,7 @@ void SearchPlayersFogSelect()
 					{
 						if ((ReplayMoreSens && IsReplayFound) || llabs(CurGameTime - tmpunitselected->LatestTime) > 50 * DetectQuality)
 						{
-							BOOL possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
+							bool possible = tmpunitselected->initialVisibled || selectedunit == LatestVisibledUnits[i];
 
 							if (!IsFoggedToPlayerMy(&unitx, &unity, hCurrentPlayer))
 							{
@@ -3780,7 +3788,7 @@ void SearchPlayersFogSelect()
 			{
 				LatestVisibledUnits2[i] = selectedunit;
 
-				BOOL found = FALSE;
+				bool found = false;
 				for (auto& UnitClick : UnitClickList)
 				{
 					if (UnitClick.PlayerNum == i)
@@ -3788,11 +3796,11 @@ void SearchPlayersFogSelect()
 						if (UnitClick.UnitAddr == selectedunit)
 						{
 							LatestVisibledUnits[i] = selectedunit;
-							UnitClick.initialVisibled = TRUE;
+							UnitClick.initialVisibled = true;
 						}
 						if ((UnitClick.SelectCount >= 0 || UnitClick.SelectCount == -5) && UnitClick.UnitAddr == selectedunit)
 						{
-							found = TRUE;
+							found = true;
 						}
 					}
 				}
@@ -3800,11 +3808,11 @@ void SearchPlayersFogSelect()
 				if (!found)
 				{
 					UnitSelectedStruct tmpus;
-					tmpus.PlayerNum = i;
+					tmpus.PlayerNum = (unsigned char)i;
 					tmpus.UnitAddr = selectedunit;
 					tmpus.LatestTime = CurGameTime;
 					tmpus.SelectCount = -5;
-					tmpus.initialVisibled = TRUE;
+					tmpus.initialVisibled = true;
 
 					UnitClickList.push_back(tmpus);
 
@@ -3867,32 +3875,32 @@ void CreateFogClickWatcherConfig()
 	}*/
 	CIniWriter fogwatcherconf(detectorConfigPath.c_str());
 	fogwatcherconf.WriteInt("FogClickWatcher", "LoggingType", 1);
-	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetIssuedOrderId", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetAttacker", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityUnit", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetIssuedOrderId", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetAttacker", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityUnit", true);
 	fogwatcherconf.WriteInt("FogClickWatcher", "UnitDetectionMethod", 1);
 	fogwatcherconf.WriteInt("FogClickWatcher", "MeepoPoofID", 0x41304E38);
 	fogwatcherconf.WriteInt("FogClickWatcher", "TechiesDetonateId", 0xD024C);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectRightClickOnlyHeroes", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "MinimapPingFogClick", false);
 	fogwatcherconf.WriteInt("FogClickWatcher", "DetectQuality", 3);
-	fogwatcherconf.WriteBool("FogClickWatcher", "ReplayMoreSens", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "PrintOrderName", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "SkipIllusions", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectImpossibleClicks", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DisplayFalse", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "Debug", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", FALSE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "ReplayPauseOnDetect", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "PrintDetectedUnitOneTime", TRUE);
-	fogwatcherconf.WriteBool("FogClickWatcher", "FullEventHookProcess", TRUE);
+	fogwatcherconf.WriteBool("FogClickWatcher", "ReplayMoreSens", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "PrintOrderName", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "SkipIllusions", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectImpossibleClicks", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DisplayFalse", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "Debug", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", false);
+	fogwatcherconf.WriteBool("FogClickWatcher", "ReplayPauseOnDetect", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "PrintDetectedUnitOneTime", true);
+	fogwatcherconf.WriteBool("FogClickWatcher", "FullEventHookProcess", true);
 }
 
 
@@ -4108,39 +4116,39 @@ void ProcessJassString(int sid)
 	}
 }
 
-BOOL GetEventPlayerChatStringCalled = FALSE;
+bool GetEventPlayerChatStringCalled = false;
 int __cdecl GetEventPlayerChatString_hooked()
 {
 	int ret_string = GetEventPlayerChatString();
 	if (GetEventPlayerChatStringCalled)
 		return ret_string;
-	GetEventPlayerChatStringCalled = TRUE;
+	GetEventPlayerChatStringCalled = true;
 	if (GameStarted && GameStartedReally)
 	{
 		ProcessJassString(ret_string);
 	}
-	GetEventPlayerChatStringCalled = FALSE;
+	GetEventPlayerChatStringCalled = false;
 	return ret_string;
 }
 
-BOOL GetEventPlayerChatStringMatchedCalled = FALSE;
+bool GetEventPlayerChatStringMatchedCalled = false;
 int __cdecl GetEventPlayerChatStringMatched_hooked()
 {
 	int ret_string = GetEventPlayerChatStringMatched();
 	if (GetEventPlayerChatStringMatchedCalled)
 		return ret_string;
-	GetEventPlayerChatStringMatchedCalled = TRUE;
+	GetEventPlayerChatStringMatchedCalled = true;
 	if (GameStarted && GameStartedReally)
 	{
 		ProcessJassString(ret_string);
 	}
-	GetEventPlayerChatStringMatchedCalled = FALSE;
+	GetEventPlayerChatStringMatchedCalled = false;
 	return ret_string;
 }
 
 void RecoveryFuncBack()
 {
-	ICCUP_DOTA_SUPPORT = TRUE;
+	ICCUP_DOTA_SUPPORT = true;
 	RevertJassNativeHook((int)ClearTextMessages_real, (int)&ClearTextMessages_hooked);
 	RevertJassNativeHook((int)GetTriggerEventId_real, (int)&GetTriggerEventId_hooked);
 	RevertJassNativeHook((int)GetSpellAbilityId_real, (int)&GetSpellAbilityId_hooked);
@@ -4175,7 +4183,7 @@ void LoadFogClickWatcherConfig()
 	}
 
 
-	ICCUP_DOTA_SUPPORT = fogwatcherconf.ReadBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", TRUE);
+	ICCUP_DOTA_SUPPORT = fogwatcherconf.ReadBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", true);
 
 	bool failedhook = false;
 
@@ -4204,7 +4212,7 @@ void LoadFogClickWatcherConfig()
 			WatcherLog("Config:GetEventPlayerChatStringMatched->%s\n", "HOOK FAILED");
 		}
 	}
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetTriggerEventId", TRUE))
+	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetTriggerEventId", true))
 	{
 		int hookAddr = CreateJassNativeHook((int)GetTriggerEventId_real, (int)&GetTriggerEventId_hooked);
 		WatcherLog("Config:GetTriggerEventId->%s\n", "TRUE");
@@ -4219,7 +4227,7 @@ void LoadFogClickWatcherConfig()
 		WatcherLog("Config:GetTriggerEventId->%s\n", "FALSE");
 	}
 
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetSpellAbilityId", TRUE))
+	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetSpellAbilityId", true))
 	{
 		int hookAddr = CreateJassNativeHook((int)GetSpellAbilityId_real, (int)&GetSpellAbilityId_hooked);
 		WatcherLog("Config:GetSpellAbilityId->%s\n", "TRUE");
@@ -4235,7 +4243,7 @@ void LoadFogClickWatcherConfig()
 	}
 
 
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetIssuedOrderId", TRUE))
+	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetIssuedOrderId", true))
 	{
 		int hookAddr = CreateJassNativeHook((int)GetIssuedOrderId_real, (int)&GetIssuedOrderId_hooked);
 		WatcherLog("Config:GetIssuedOrderId->%s\n", "TRUE");
@@ -4250,7 +4258,7 @@ void LoadFogClickWatcherConfig()
 		WatcherLog("Config:GetIssuedOrderId->%s\n", "FALSE");
 	}
 
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetAttacker", FALSE))
+	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetAttacker", false))
 	{
 		int hookAddr = CreateJassNativeHook((int)GetAttacker_real, (int)&GetAttacker_hooked);
 		WatcherLog("Config:GetAttacker->%s\n", "TRUE");
@@ -4265,7 +4273,7 @@ void LoadFogClickWatcherConfig()
 		WatcherLog("Config:GetAttacker->%s\n", "FALSE");
 	}
 
-	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetSpellAbilityUnit", TRUE))
+	if (fogwatcherconf.ReadBool("FogClickWatcher", "GetSpellAbilityUnit", true))
 	{
 		int hookAddr = CreateJassNativeHook((int)GetSpellAbilityUnit_real, (int)&GetSpellAbilityUnit_hooked);
 		WatcherLog("Config:GetSpellAbilityUnit->%s\n", "TRUE");
@@ -4285,26 +4293,26 @@ void LoadFogClickWatcherConfig()
 		WatcherLog("Possible is need to enable ICCUP_DOTA_SUPPORT option\n");
 	}
 
-	DetectLocalPlayer = fogwatcherconf.ReadBool("FogClickWatcher", "LocalPlayerEnable", TRUE);
+	DetectLocalPlayer = fogwatcherconf.ReadBool("FogClickWatcher", "LocalPlayerEnable", true);
 	UnitDetectionMethod = fogwatcherconf.ReadInt("FogClickWatcher", "UnitDetectionMethod", 3);
 	MeepoPoofID = fogwatcherconf.ReadInt("FogClickWatcher", "MeepoPoofID", 0);
-	DetectRightClickOnlyHeroes = fogwatcherconf.ReadBool("FogClickWatcher", "DetectRightClickOnlyHeroes", FALSE);
-	MinimapPingFogClick = fogwatcherconf.ReadBool("FogClickWatcher", "MinimapPingFogClick", FALSE);
+	DetectRightClickOnlyHeroes = fogwatcherconf.ReadBool("FogClickWatcher", "DetectRightClickOnlyHeroes", false);
+	MinimapPingFogClick = fogwatcherconf.ReadBool("FogClickWatcher", "MinimapPingFogClick", false);
 	DetectQuality = fogwatcherconf.ReadInt("FogClickWatcher", "DetectQuality", 3);
-	ReplayMoreSens = fogwatcherconf.ReadBool("FogClickWatcher", "ReplayMoreSens", TRUE);
-	PrintOrderName = fogwatcherconf.ReadBool("FogClickWatcher", "PrintOrderName", FALSE);
-	SkipIllusions = fogwatcherconf.ReadBool("FogClickWatcher", "SkipIllusions", FALSE);
-	DetectImpossibleClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectImpossibleClicks", FALSE);
-	DetectItemDestroyer = fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", FALSE);
-	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", FALSE);
-	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", FALSE);
+	ReplayMoreSens = fogwatcherconf.ReadBool("FogClickWatcher", "ReplayMoreSens", true);
+	PrintOrderName = fogwatcherconf.ReadBool("FogClickWatcher", "PrintOrderName", false);
+	SkipIllusions = fogwatcherconf.ReadBool("FogClickWatcher", "SkipIllusions", false);
+	DetectImpossibleClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectImpossibleClicks", false);
+	DetectItemDestroyer = fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", false);
+	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", false);
+	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", false);
 	TechiesDetonateId = fogwatcherconf.ReadInt("FogClickWatcher", "TechiesDetonateId", 0);
-	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", FALSE);
-	DebugModeEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", FALSE);
-	DisplayFalse = fogwatcherconf.ReadBool("FogClickWatcher", "DisplayFalse", TRUE);
-	ReplayPauseOnDetect = fogwatcherconf.ReadBool("FogClickWatcher", "ReplayPauseOnDetect", TRUE);
-	PrintDetectedUnitOneTime = fogwatcherconf.ReadBool("FogClickWatcher", "PrintDetectedUnitOneTime", TRUE);
-	FullEventHookProcess = fogwatcherconf.ReadBool("FogClickWatcher", "FullEventHookProcess", TRUE);
+	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", false);
+	DebugModeEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", false);
+	DisplayFalse = fogwatcherconf.ReadBool("FogClickWatcher", "DisplayFalse", true);
+	ReplayPauseOnDetect = fogwatcherconf.ReadBool("FogClickWatcher", "ReplayPauseOnDetect", true);
+	PrintDetectedUnitOneTime = fogwatcherconf.ReadBool("FogClickWatcher", "PrintDetectedUnitOneTime", true);
+	FullEventHookProcess = fogwatcherconf.ReadBool("FogClickWatcher", "FullEventHookProcess", true);
 
 	WatcherLog("Config:LoggingType->%i\n", LoggingType);
 	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
@@ -4329,9 +4337,6 @@ void LoadFogClickWatcherConfig()
 	WatcherLog("Config:FullEventHookProcess->%s\n", FullEventHookProcess ? "TRUE" : "FALSE");
 }
 
-
-
-
 void Init126aVer()
 {
 	GameVersion = 0x126a;
@@ -4347,7 +4352,7 @@ void Init126aVer()
 	GetSpellTargetY = (pGetSpellTargetY)(GameDll + 0x3C3670);
 	GetHandleUnitAddress = (pGetHandleUnitAddress)(GameDll + 0x3BDCB0);
 	GetHandleItemAddress = (pGetHandleUnitAddress)(GameDll + 0x3BEB50);
-	IsUnitSelectedReal = (pIsUnitSelected)(GameDll + 0x421E20);
+	IsUnitSelected = (pIsUnitSelected)(GameDll + 0x421E20);
 	pW3XGlobalClass = GameDll + 0xAB4F80;
 	pPrintText2 = GameDll + 0x2F69A0;
 	IsReplayMode = (pIsReplayMode)(GameDll + 0x53F160);
@@ -4388,9 +4393,9 @@ void GameWaiting()
 	{
 		if (!GameStarted)
 		{
-			GameStartedReally = FALSE;
-			GameStarted = TRUE;
-			FogClickEnabled = TRUE;
+			GameStartedReally = false;
+			GameStarted = true;
+			FogClickEnabled = true;
 
 			StartGameTime = CurTickCount;
 			UnitClickList.clear();
@@ -4418,9 +4423,9 @@ void GameWaiting()
 	{
 		if (GameStarted)
 		{
-			GameStartedReally = FALSE;
-			IsReplayFound = FALSE;
-			GameStarted = FALSE;
+			GameStartedReally = false;
+			IsReplayFound = false;
+			GameStarted = false;
 			StartGameTime = CurTickCount;
 			UnitClickList.clear();
 			FogHelperList.clear();
@@ -4446,7 +4451,7 @@ void ProcessFogWatcher()
 	{
 		if (!GameStartedReally)
 		{
-			GameStartedReally = TRUE;
+			GameStartedReally = true;
 
 			LoadFogClickWatcherConfig();
 
@@ -4462,7 +4467,7 @@ void ProcessFogWatcher()
 			DisplayText(PrintBuffer, 14.4f);
 			if (IsReplayMode())
 			{
-				IsReplayFound = TRUE;
+				IsReplayFound = true;
 				sprintf_s(PrintBuffer, 2048, "%s", "|c0010FF10[REPLAY MODE] |c00FF2000Info|r: |c00AAAAAADisabled ClearTextMessages funciton and increse DisplayText time!|r\0");
 				DisplayText(PrintBuffer, 14.4f);
 			}
@@ -4479,7 +4484,7 @@ void ProcessFogWatcher()
 		{
 
 		}
-		GameStartedReally = FALSE;
+		GameStartedReally = false;
 	}
 }
 
@@ -4602,7 +4607,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		if (GetModuleHandleA("FogDetectLauncher.exe"))
 		{
 			return TRUE;
-		}
+}
 #endif
 
 		if (!GetModuleHandleA("Game.dll"))
@@ -4652,7 +4657,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 			}
 
 			UnhookWindowsHookEx(hhookSysMsg);
-	}
+		}
 	}
 
 	return TRUE;

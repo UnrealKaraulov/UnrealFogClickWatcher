@@ -21,7 +21,7 @@ float CIniReader::ReadFloat(const char* szSection, const char* szKey, float fltD
 	fltResult = (float)atof(szResult);
 	return fltResult;
 }
-int CIniReader::ReadBool(const char* szSection, const  char* szKey, int bolDefaultValue)
+bool CIniReader::ReadBool(const char* szSection, const  char* szKey, bool bolDefaultValue)
 {
 	char szResult[255];
 	char szDefault[255];
