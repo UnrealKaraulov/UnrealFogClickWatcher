@@ -31,3 +31,6 @@ UnrealFogClickWatcher/Main1.cpp.PVS-Studio.compilerVersion.cmd
 UnrealFogClickWatcher/Main1.cpp.PVS-Studio.preprocess.cmd
 UnrealFogClickWatcher/Main1.cpp.PVS-Studio.preprocess.cmd.rsp
 UnrealFogClickWatcher/Main1.PVS-Studio.i
+*.json
+*.ifc
+*.command

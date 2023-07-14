@@ -61,6 +61,22 @@ int LoggingType = 0;
 
 bool BB_CODE_FORMAT_OUTPUT = true;
 
+
+
+
+#include <chrono>
+
+long long start_point = GetTickCount();
+auto t1 = std::chrono::steady_clock::now();
+long long
+GetRealTicks()
+{
+	auto t2 = std::chrono::steady_clock::now();
+	auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+	return start_point + int_ms.count();
+}
+
+
 void replaceAll(std::string& str, const std::string& from, const std::string& to)
 {
 	size_t start_pos = 0;
@@ -493,7 +509,7 @@ long long increaseTimerTicks = 0;
 
 long long GetGameTime()
 {
-	if (!GameDll)
+	/*if (!GameDll)
 	{
 		return CurTickCount;
 	}
@@ -513,7 +529,8 @@ long long GetGameTime()
 
 	oldGameTime = tmpGameTime;
 	realTickCountTime = CurTickCount;*/
-	return tmpGameTime + increaseTimerTicks;
+	/*return tmpGameTime + increaseTimerTicks;*/
+	return GetRealTicks();
 }
 
 
@@ -1684,7 +1701,7 @@ int CreateJassNativeHook(int oldaddress, int newaddress)
 		if (module && *(int*)(module + 0x1048DC8) == (int)(GameDll + 0x3C8F00))
 		{
 			WatcherLog("[HOOK JASS NATIVE IN iCCup Dota 409]");
-			unsigned char* StartAddr = module + 0x1047DC8;
+			unsigned char* StartAddr = module + 0x1048DC8;
 			while (*(int*)StartAddr != 0)
 			{
 				if (*(int*)StartAddr == oldaddress)
@@ -2277,7 +2294,7 @@ void ScanForTechiesBot(int PlayerID, PlayerEvent NewPlayerEvent)
 							Event2.Time < 100 &&
 							Event3.Time < 100)
 						{
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.4]|r: Player %s%s|r use |c00EF1000TechiesBot|r!!\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use |c00EF1000TechiesBot|r!!\0",
 								GetPlayerColorString(PlayerID),
 								GetPlayerName(PlayerID, 0));
 
