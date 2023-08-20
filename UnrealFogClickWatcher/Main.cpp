@@ -59,23 +59,38 @@ long long StartGameTime = 0;
 
 int LoggingType = 0;
 
+int GameTimeMode = 1;
+
 bool BB_CODE_FORMAT_OUTPUT = true;
 
 
+auto realticks1 = std::chrono::steady_clock::now();
 
-
-#include <chrono>
-
-long long start_point = GetTickCount();
-auto t1 = std::chrono::steady_clock::now();
-long long
-GetRealTicks()
+long long GetRealTicks()
 {
-	auto t2 = std::chrono::steady_clock::now();
-	auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-	return start_point + int_ms.count();
+	return  std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::steady_clock::now() - realticks1).count();
 }
 
+int GameTicksRate = 25;
+
+auto gameticks1 = std::chrono::steady_clock::now();
+
+long long lastgameticks = 0;
+
+long long startgameoffset = 0;
+
+long long GetGameTicksWithRate()
+{
+	auto tmpgameticks = std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::steady_clock::now() - realticks1).count();
+
+	if (tmpgameticks - lastgameticks < GameTicksRate)
+		return lastgameticks + startgameoffset;
+
+	lastgameticks = tmpgameticks;
+	return tmpgameticks + startgameoffset;
+}
 
 void replaceAll(std::string& str, const std::string& from, const std::string& to)
 {
@@ -193,8 +208,6 @@ bool DetectImpossibleClicks = false;
 bool DetectItemDestroyer = false;
 
 bool DetectOwnItems = false;
-
-bool DetectPointClicks = false;
 
 int TechiesDetonateId = 0xD024C;
 
@@ -499,7 +512,16 @@ unsigned int GetPlayerColorUINT(int player)
 //
 //}
 
-unsigned char* GameTimeOffset = 0;
+bool IsGame()
+{
+	if (!GameDll)
+		return 0;
+
+	unsigned char* _GameUI = GameDll + 0x93631C;
+	unsigned char* InGame = GameDll + 0xACE66C;
+
+	return *(unsigned char**)InGame && **(unsigned char***)InGame == _GameUI;
+}
 
 long long oldGameTime = 0;
 
@@ -507,30 +529,43 @@ long long realTickCountTime = 0;
 
 long long increaseTimerTicks = 0;
 
+long long tmpGameTimeReal;
+
 long long GetGameTime()
 {
-	/*if (!GameDll)
+	if (!GameDll || !IsGame())
 	{
-		return CurTickCount;
-	}
-	long long tmpGameTime = (long long)*(unsigned int*)GameTimeOffset;
-
-	if (tmpGameTime <= 0 || tmpGameTime == 0xFFFFFFFF)
-		return CurTickCount;
-
-	/*if (tmpGameTime == oldGameTime)
-	{
-		increaseTimerTicks += llabs(CurTickCount - realTickCountTime);
-	}
-	else
-	{
-		increaseTimerTicks = 0;
+		return 0;
 	}
 
-	oldGameTime = tmpGameTime;
-	realTickCountTime = CurTickCount;*/
-	/*return tmpGameTime + increaseTimerTicks;*/
-	return GetRealTicks();
+	if (pJassEnvAddress)
+	{
+		unsigned char* cNetData = *(unsigned char**)pJassEnvAddress;
+		if (cNetData)
+		{
+			cNetData = *(unsigned char**)(cNetData + 0x34);
+			if (cNetData)
+			{
+				cNetData = *(unsigned char**)(cNetData + 0x10);
+				if (cNetData)
+				{
+					cNetData = *(unsigned char**)(cNetData + 0x8);
+					if (cNetData)
+					{
+						long long tmpGameTime = (long long)*(unsigned int*)(cNetData + 0x1C70);
+						if (tmpGameTime <= 0 || tmpGameTime == 0xFFFFFFFF)
+						{
+							return tmpGameTimeReal;
+						}
+						else
+							tmpGameTimeReal = tmpGameTime;
+					}
+				}
+			}
+		}
+	}
+
+	return tmpGameTimeReal;
 }
 
 
@@ -1208,17 +1243,6 @@ bool __cdecl IsUnitVisibleToPlayer(unsigned char* unitaddr, unsigned char* playe
 typedef int(__cdecl* pIsUnitSelected)(int unitaddr, int playerdataaddr);
 pIsUnitSelected IsUnitSelected;
 
-bool IsGame()
-{
-	if (!GameDll)
-		return 0;
-
-	unsigned char* _GameUI = GameDll + 0x93631C;
-	unsigned char* InGame = GameDll + 0xACE66C;
-
-	return *(unsigned char**)InGame && **(unsigned char***)InGame == _GameUI;
-}
-
 
 long long ActionTime = 0;
 
@@ -1487,7 +1511,7 @@ std::string GetObjectTypeIdStr(int unit_or_item_addr)
 {
 	char outstr[5] = { 'B','A','D','\0','\0' };
 	char instr[5] = { 'B','A','D','\0','\0' };
-	
+
 	int incode = GetObjectTypeId(unit_or_item_addr);
 	memcpy(instr, &incode, sizeof(int));
 
@@ -2314,7 +2338,7 @@ void ScanForTechiesBot(int PlayerID, PlayerEvent NewPlayerEvent)
 							Event2.Time < 100 &&
 							Event3.Time < 100)
 						{
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use |c00EF1000TechiesBot|r!!\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use |c00EF1000TechiesBot|r!!\0",
 								GetPlayerColorString(PlayerID),
 								GetPlayerName(PlayerID, 0));
 
@@ -2383,7 +2407,7 @@ void ScanForMeepoBot(int PlayerID, PlayerEvent NewPlayerEvent)
 							//if ( !PlayerMeepoDetect[ PlayerID ] )
 							//{
 							//	PlayerMeepoDetect[ PlayerID ] = true;
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use |c00EF1000MeepoKey|r!!\0",
+							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use |c00EF1000MeepoKey|r!!\0",
 								GetPlayerColorString(PlayerID),
 								GetPlayerName(PlayerID, 0));
 
@@ -2423,8 +2447,6 @@ void AddNewPlayerEvent(int PlayerID, PlayerEvent NewPlayerEvent)
 
 void BotDetector(const int SkillID, const int EventID, const int OrderId, const int CasterID, const char* addinfo = "")
 {
-	if (abs(GetGameTime() - CurGameTime > 1000))
-		return;
 	/*WatcherLog("[+%ums][LogActions] : ", (CurGameTime - LastEventTime));
 	WatcherLog("Skill:%X - ", SkillID);
 	WatcherLog("EventID:%u - ", EventID);
@@ -2494,137 +2516,11 @@ std::vector<ProcessNewAction> ProcessNewActionList;
 
 void ProcessGetSpellAbilityIdAction(const ProcessNewAction& action)
 {
-	/*if (action.CasterUnitHandle > 0)
-	{
-		if (action.TargetUnitHandle > 0)
-		{
-			int CasterAddr = GetHandleUnitAddress(action.CasterUnitHandle, 0);
-			int TargetAddr = GetHandleUnitAddress(action.TargetUnitHandle, 0);
-			if (CasterAddr > 0 && IsNotBadUnit(CasterAddr) && TargetAddr > 0 && IsNotBadUnit(TargetAddr))
-			{
-				int CasterSlot = GetUnitOwnerSlot(CasterAddr);
-				int TargetSlot = GetUnitOwnerSlot(TargetAddr);
 
-				if (action.GetIssuedOrderId != 0 && CasterSlot >= 0 && CasterSlot < MAX_PLAYERS && TargetSlot >= 0 && TargetSlot < TOTAL_MAX_PLAYERS_ARRAY &&
-					(IsHero(TargetAddr) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))
-					&& (IsReplayFound || CasterSlot != GetLocalPlayerNumber() || DetectLocalPlayer)
-					&& TargetSlot != CasterSlot && IsPlayerEnemyById(CasterSlot, TargetSlot))
-				{
-					if (IsFoggedInHistory(CasterSlot, TargetAddr))
-					{
-						float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
-						GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
-						if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
-						{
-							if (MinimapPingFogClick && IsReplayMode)
-							{
-								unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
-								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-							}
-
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use ability(%s) in fogged %s%s|r[TARGET]\0",
-								GetPlayerColorString(CasterSlot),
-								GetPlayerName(CasterSlot, 0),
-								ConvertIdToString(action.GetIssuedOrderId).c_str(),
-								GetPlayerColorString(TargetSlot),
-								GetObjectName(TargetAddr));
-
-							ActionTime = CurGameTime;
-							DisplayText(PrintBuffer, 14.4f);
-							SendPause();
-						}
-						else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
-						{
-							if (MinimapPingFogClick && IsReplayMode)
-							{
-								unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
-								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-							}
-
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r[TARGET]\0",
-								GetPlayerColorString(CasterSlot),
-								GetPlayerName(CasterSlot, 0),
-								ConvertIdToString(action.GetIssuedOrderId).c_str(),
-								GetPlayerColorString(TargetSlot),
-								GetObjectName(TargetAddr));
-
-							ActionTime = CurGameTime;
-							DisplayText(PrintBuffer, 14.4f);
-							SendPause();
-						}
-					}
-				}
-			}
-		}
-		else if (action.GetIssuedOrderId != 0 && DetectPointClicks && fabs(action.GetSpellOrderTargetX) > 0.01f && fabs(action.GetSpellOrderTargetY) > 0.01f)
-		{
-			int CasterAddr = GetHandleUnitAddress(action.CasterUnitHandle, 0);
-
-			if (CasterAddr > 0)
-			{
-				int CasterOwner = GetUnitOwnerSlot(CasterAddr);
-
-				float x = action.GetSpellOrderTargetX;
-				float y = action.GetSpellOrderTargetY;
-				int TargetAddr = GetUnitByXY(x, y, CasterOwner, true);
-
-				if (TargetAddr > 0 && (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))))
-				{
-					if (IsFoggedInHistory(CasterOwner, TargetAddr))
-					{
-						int TargetSlot = GetUnitOwnerSlot(TargetAddr);
-
-						float unitx = 0.0f, unity = 0.0f, unitz = 0.0f;
-						GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
-						if (IsFoggedToPlayerMy(&unitx, &unity, Player(CasterOwner)))
-						{
-							if (MinimapPingFogClick && IsReplayMode)
-							{
-								unsigned int PlayerColorInt = GetPlayerColorUINT(CasterOwner);
-								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-							}
-
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use ability(%s) in fogged %s%s|r[POINT]\0",
-								GetPlayerColorString(CasterOwner),
-								GetPlayerName(CasterOwner, 0),
-								ConvertIdToString(action.GetIssuedOrderId).c_str(),
-								GetPlayerColorString(TargetSlot),
-								GetObjectName(TargetAddr));
-
-							ActionTime = CurGameTime;
-							DisplayText(PrintBuffer, 14.4f);
-							SendPause();
-						}
-						else if (!IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterOwner)))
-						{
-							if (MinimapPingFogClick && IsReplayMode)
-							{
-								unsigned int PlayerColorInt = GetPlayerColorUINT(CasterOwner);
-								PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-							}
-
-							sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use ability(%s) in invisibled %s%s|r[POINT]\0",
-								GetPlayerColorString(CasterOwner),
-								GetPlayerName(CasterOwner, 0),
-								ConvertIdToString(action.GetIssuedOrderId).c_str(),
-								GetPlayerColorString(TargetSlot),
-								GetObjectName(TargetAddr));
-
-							ActionTime = CurGameTime;
-							DisplayText(PrintBuffer, 14.4f);
-							SendPause();
-						}
-					}
-				}
-			}
-		}
-	}*/
 }
 
 void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 {
-	if (abs(GetGameTime() - CurGameTime > 1000))
-		return;
 	if (action.EventID == 77 || action.EventID == 40)
 	{
 		bool IsItem = false;
@@ -2678,7 +2574,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use %s in fogged %s %s%s|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use %s in fogged %s %s%s|r[TARGET]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2690,14 +2586,14 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 								DisplayText(PrintBuffer, 14.4f);
 								SendPause();
 							}
-							else if (!IsItem && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
+							/*else if (!IsItem && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
 							{
 								if (MinimapPingFogClick && IsReplayMode)
 								{
 									unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use %s in invisibled %s%s|r[TARGET]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use %s in invisibled %s%s|r[TARGET]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2707,7 +2603,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 								ActionTime = CurGameTime;
 								DisplayText(PrintBuffer, 14.4f);
 								SendPause();
-							}
+							}*/
 							else if (IsItem && (DetectItemDestroyer || DetectOwnItems) && action.GetIssuedOrderId == 0xD000F)
 							{
 								if ((TargetSlot != CasterSlot && DetectItemDestroyer) || DetectOwnItems)
@@ -2719,7 +2615,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 											unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
 											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 										}
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r try to destroy item %s%s|r\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r try to destroy item %s%s|r\0",
 											GetPlayerColorString(CasterSlot),
 											GetPlayerName(CasterSlot, 0),
 											GetPlayerColorString(TargetSlot),
@@ -2754,9 +2650,8 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 				if ((CasterSlot >= 0 && CasterSlot < MAX_PLAYERS) && Player(CasterSlot) > 0)
 				{
 					int TargetAddr = GetUnitByXY(x, y, CasterSlot);
-					bool DetectionImpossibleClick = false;
 
-					if (TargetAddr > 0 && (IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (DetectImpossibleClicks && IsDetectedTower(TargetAddr)) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr)))))
+					if (TargetAddr > 0 && IsNotBadUnit(TargetAddr) && (IsHero(TargetAddr) || (DetectImpossibleClicks && IsDetectedTower(TargetAddr)) || (!DetectRightClickOnlyHeroes && !IsUnitTower(TargetAddr))))
 					{
 						int TargetSlot = GetUnitOwnerSlot(TargetAddr);
 						if ((TargetSlot >= 0 && TargetSlot < TOTAL_MAX_PLAYERS_ARRAY) && Player(TargetSlot) > 0)
@@ -2764,22 +2659,25 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 							if (IsFoggedInHistory(CasterSlot, TargetAddr))
 							{
 								GetUnitLocation3D(TargetAddr, &unitx, &unity, &unitz);
+
+								bool DetectionImpossibleClick = false;
+
 								if (DetectImpossibleClicks && IsDetectedTower(TargetAddr))
 								{
 									DetectionImpossibleClick = true;
 								}
 
-								if ((DetectPointClicks || DetectionImpossibleClick) && IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
+								if (DetectionImpossibleClick && IsFoggedToPlayerMy(&unitx, &unity, Player(CasterSlot)))
 								{
-									if (MinimapPingFogClick && IsReplayMode)
+									if (action.GetIssuedOrderId == 0xD0012 || action.GetIssuedOrderId == 0xD0003)
 									{
-										unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
-										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-									}
+										if (MinimapPingFogClick && IsReplayMode)
+										{
+											unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
+											PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
+										}
 
-									if (!DetectImpossibleClicks || (action.GetIssuedOrderId == 0xD0012 || action.GetIssuedOrderId == 0xD0003))
-									{
-										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use %s in fogged [unit] %s%s|r[POINT]\0",
+										sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use %s in fogged [unit] %s%s|r[POINT]\0",
 											GetPlayerColorString(CasterSlot),
 											GetPlayerName(CasterSlot, 0),
 											ImpossibleClick ? "-HACKCLICK-" : ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2792,28 +2690,9 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									ImpossibleClick = false;
 									SendPause();
 								}
-								else if (DetectPointClicks && !DetectionImpossibleClick && !IsUnitVisibleToPlayer((unsigned char*)TargetAddr, (unsigned char*)GetPlayerByNumber(CasterSlot)))
-								{
-									if (MinimapPingFogClick && IsReplayMode)
-									{
-										unsigned int PlayerColorInt = GetPlayerColorUINT(CasterSlot);
-										PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
-									}
-
-									sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use %s in invisibled %s%s|r[POINT]\0",
-										GetPlayerColorString(CasterSlot),
-										GetPlayerName(CasterSlot, 0),
-										ConvertIdToString(action.GetIssuedOrderId).c_str(),
-										GetPlayerColorString(TargetSlot),
-										GetObjectName(TargetAddr));
-
-									ActionTime = CurGameTime;
-									DisplayText(PrintBuffer, 14.4f);
-									SendPause();
-								}
 							}
 						}
-						else if (DetectPointClicks && IsNotBadItem(TargetAddr) && !(action.GetIssuedOrderId >= 0xD0022 && action.GetIssuedOrderId <= 0xD0028))
+						else if (TargetAddr > 0 && IsNotBadItem(TargetAddr) && !(action.GetIssuedOrderId >= 0xD0022 && action.GetIssuedOrderId <= 0xD0028))
 						{
 							float xunitx = 0.0f, xunity = 0.0f, xunitz = 0.0f;
 							GetItemLocation3D(TargetAddr, &xunitx, &xunity, &xunitz);
@@ -2825,7 +2704,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 									PingMinimapMy(&xunitx, &xunity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r use %s in fogged [item] %s%s|r[POINT]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r use %s in fogged [item] %s%s|r[POINT]\0",
 									GetPlayerColorString(CasterSlot),
 									GetPlayerName(CasterSlot, 0),
 									ConvertIdToString(action.GetIssuedOrderId).c_str(),
@@ -2847,7 +2726,7 @@ void ProcessGetTriggerEventAction(const ProcessNewAction& action)
 					int slott = GetUnitOwnerSlot(CasterAddr);
 
 
-					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r activate GuAI Maphack!!\0",
+					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r activate GuAI Maphack!!\0",
 						GetPlayerColorString(slott),
 						GetPlayerName(slott, 0));
 
@@ -2885,9 +2764,7 @@ void ActionProcessFunction()
 	ProcessNewActionList = tmpProcessNewActionList;
 }
 
-typedef std::chrono::high_resolution_clock Clock;
-
-std::chrono::time_point<std::chrono::high_resolution_clock> GetTriggerEventIdTime = Clock::now();
+long long GetTriggerEventIdTime = GetRealTicks();
 
 bool GetTriggerEventIdCalled = false;
 int __cdecl GetTriggerEventId_hooked()
@@ -2900,9 +2777,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 	if (!FullEventHookProcess)
 	{
-		auto end = Clock::now();
-		auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - GetTriggerEventIdTime);
-		if (int_ms.count() <= 1)
+		if (GetRealTicks() - GetTriggerEventIdTime <= 1)
 		{
 			GetTriggerEventIdCalled = false;
 			return TriggerEventId;
@@ -2983,7 +2858,7 @@ int __cdecl GetTriggerEventId_hooked()
 
 	if (!FullEventHookProcess)
 	{
-		GetTriggerEventIdTime = Clock::now();
+		GetTriggerEventIdTime = GetRealTicks();
 	}
 
 	tmpProcessNewAction.CasterPlayerHandle = hPlayer;
@@ -3017,7 +2892,7 @@ int __cdecl GetTriggerEventId_hooked()
 	return TriggerEventId;
 }
 
-std::chrono::time_point<std::chrono::high_resolution_clock> GetSpellAbilityIdTime = Clock::now();
+long long GetSpellAbilityIdTime = GetRealTicks();
 
 bool GetSpellAbilityIdCalled = false;
 int __cdecl GetSpellAbilityId_hooked()
@@ -3030,10 +2905,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 	if (!FullEventHookProcess)
 	{
-		auto end = Clock::now();
-		auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - GetSpellAbilityIdTime);
-
-		if (int_ms.count() <= 1)
+		if (GetRealTicks() - GetSpellAbilityIdTime <= 1)
 		{
 			GetSpellAbilityIdCalled = false;
 			return SpellAbilityId;
@@ -3113,7 +2985,7 @@ int __cdecl GetSpellAbilityId_hooked()
 
 	if (!FullEventHookProcess)
 	{
-		GetSpellAbilityIdTime = Clock::now();
+		GetSpellAbilityIdTime = GetRealTicks();
 	}
 
 	tmpProcessNewAction.CasterPlayerHandle = hPlayer;
@@ -3436,7 +3308,7 @@ void SearchPlayersFogSelect()
 						unsigned int PlayerColorInt = GetPlayerColorUINT(i);
 						PingMinimapMy(&itemx, &itemy, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 					}
-					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r select invisibled [item] |c004B4B4B%s|r [%s]",
+					sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r select invisibled [item] |c004B4B4B%s|r [%s]",
 						GetPlayerColorString(i),
 						GetPlayerName(i, 0),
 						GetObjectName(selecteditem),
@@ -3563,7 +3435,7 @@ void SearchPlayersFogSelect()
 					{
 						bool possible = UnitClick.initialVisibled || selectedunit == LatestVisibledUnits[i];
 
-						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r select invisibled %s%s|r [%s]\0",
+						sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r select invisibled %s%s|r [%s]\0",
 							GetPlayerColorString(i),
 							GetPlayerName(i, 0),
 							GetPlayerColorString(OwnedPlayerSlot),
@@ -3725,7 +3597,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r select invisibled %s%s|r [%s]",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r select invisibled %s%s|r [%s]",
 									GetPlayerColorString(i),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(OwnedPlayerSlot),
@@ -3761,7 +3633,7 @@ void SearchPlayersFogSelect()
 									PingMinimapMy(&unitx, &unity, &pingduration, PlayerColorInt & 0x00FF0000, PlayerColorInt & 0x0000FF00, PlayerColorInt & 0x000000FF, false);
 								}
 
-								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.5]|r: Player %s%s|r select fogged %s%s|r [%s]\0",
+								sprintf_s(PrintBuffer, 2048, "|c00EF4000[FogCW v18.6]|r: Player %s%s|r select fogged %s%s|r [%s]\0",
 									GetPlayerColorString(i),
 									GetPlayerName(i, 0),
 									GetPlayerColorString(OwnedPlayerSlot),
@@ -3912,6 +3784,7 @@ void CreateFogClickWatcherConfig()
 	}*/
 	CIniWriter fogwatcherconf(detectorConfigPath.c_str());
 	fogwatcherconf.WriteInt("FogClickWatcher", "LoggingType", 1);
+	fogwatcherconf.WriteInt("FogClickWatcher", "GameTimeMode", 1);
 	fogwatcherconf.WriteBool("FogClickWatcher", "LocalPlayerEnable", true);
 	fogwatcherconf.WriteBool("FogClickWatcher", "GetTriggerEventId", true);
 	fogwatcherconf.WriteBool("FogClickWatcher", "GetSpellAbilityId", true);
@@ -3930,7 +3803,6 @@ void CreateFogClickWatcherConfig()
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectImpossibleClicks", true);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectItemDestroyer", true);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DetectOwnItems", true);
-	fogwatcherconf.WriteBool("FogClickWatcher", "DetectPointClicks", false);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DisplayFalse", false);
 	fogwatcherconf.WriteBool("FogClickWatcher", "DebugLog", false);
 	fogwatcherconf.WriteBool("FogClickWatcher", "Debug", false);
@@ -4030,7 +3902,7 @@ void* __stdcall DllSelfUnloading(void* hModule)
 }
 
 
-unsigned char * pGameClass1 = 0;
+unsigned char* pGameClass1 = 0;
 
 int ReadObjectAddrFromGlobalMat(unsigned int a1, unsigned int a2)
 {
@@ -4138,7 +4010,7 @@ void ProcessCmdString(std::string str)
 {
 	if (str == "-help" || str == "-foghelp")
 	{
-		DisplayText("|c00FF2000[FogCW v18.5 by Karaulov]", 14.4f);
+		DisplayText("|c00FF2000[FogCW v18.6 by Karaulov]", 14.4f);
 
 		DisplayText("|c00FFFFFF-fogtoggle_______|c00AAFFAAEnable/Disable FogClickWatcher", 14.4f);
 		DisplayText("|c00FFFFFF-fogunload______|c00FFAAAAForce unload FogClickWatcher|c00FF0000[!!!CAN CRASH GAME!!!]|r", 14.4f);
@@ -4151,16 +4023,16 @@ void ProcessCmdString(std::string str)
 
 		if (FogClickEnabled)
 		{
-			DisplayText("|c00FF2000[FogCW v18.5] : |c0020FF20ENABLED", 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c0020FF20ENABLED", 14.4f);
 		}
 		else
 		{
-			DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020DISABLED", 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020DISABLED", 14.4f);
 		}
 	}
 	else if (str == "-fogunload")
 	{
-		DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020UNLOADED FROM MEMORY", 14.4f);
+		DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020UNLOADED FROM MEMORY", 14.4f);
 		DllSelfUnloading(MainModule);
 	}
 	else if (str == "-printinfo")
@@ -4170,8 +4042,8 @@ void ProcessCmdString(std::string str)
 		{
 			float x, y, z;
 			GetUnitLocation3D(unit, x, y, z);
-			DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020 Coords: " + std::to_string(x) + "/" + std::to_string(y), 14.4f);
-			DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020 UNIT ID: " + GetObjectTypeIdStr(unit), 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020 Coords: " + std::to_string(x) + "/" + std::to_string(y), 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020 UNIT ID: " + GetObjectTypeIdStr(unit), 14.4f);
 		}
 	}
 	else if (str == "-printitems")
@@ -4184,7 +4056,7 @@ void ProcessCmdString(std::string str)
 				int item = _GetItemInSlot(unit, 0, i);
 				if (item > 0)
 				{
-					DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020 SLOT ID " + std::to_string(i) + " : " + GetObjectTypeIdStr(item), 14.4f);
+					DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020 SLOT ID " + std::to_string(i) + " : " + GetObjectTypeIdStr(item), 14.4f);
 				}
 			}
 		}
@@ -4197,7 +4069,7 @@ void ProcessCmdString(std::string str)
 			auto unitabils = FindUnitAbils(unit);
 			for (auto abil : unitabils)
 			{
-				DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020" + GetObjectTypeIdStr(abil), 14.4f);
+				DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020" + GetObjectTypeIdStr(abil), 14.4f);
 			}
 		}
 	}
@@ -4211,7 +4083,7 @@ void ProcessCmdString(std::string str)
 
 			int dist = (int)(Distance3D(x, y, z, PrintCoordX, PrintCoordY, PrintCoordZ) + 0.5f);
 			int dist2 = (int)(Distance2D(x, y, PrintCoordX, PrintCoordY) + 0.5f);
-			DisplayText("|c00FF2000[FogCW v18.5] : |c00FF2020 Coords: " + std::to_string(x) + "/" + std::to_string(y) + ".Dist:" + std::to_string(dist) + "/" + std::to_string(dist2), 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c00FF2020 Coords: " + std::to_string(x) + "/" + std::to_string(y) + ".Dist:" + std::to_string(dist) + "/" + std::to_string(dist2), 14.4f);
 
 			PrintCoordX = x;
 			PrintCoordY = y;
@@ -4247,10 +4119,11 @@ void ProcessCmdString(std::string str)
 
 		if (showhelp)
 		{
-			DisplayText("|c00FF2000[FogCW v18.5] : |c0020FF20OPTION LIST : |c00AA2000 -fogoption 1/2/3", 14.4f);
+			DisplayText("|c00FF2000[FogCW v18.6] : |c0020FF20OPTION LIST : |c00AA2000 -fogoption 1/2/3", 14.4f);
 			if (helpindex == 1)
 			{
 				DisplayText("|c00506000[LoggingType]				: |c0020FF20[ 0 / 1 / -1 ]", 14.4f);
+				DisplayText("|c00506000[GameTimeMode]				: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[LocalPlayerEnable]			: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[UnitDetectionMethod]		: |c0020FF20[ 1 - 7 ]", 14.4f);
 				DisplayText("|c00506000[MeepoPoofID]				: |c0020FF20[ 0 / POOFID ]", 14.4f);
@@ -4258,14 +4131,13 @@ void ProcessCmdString(std::string str)
 				DisplayText("|c00506000[DetectQuality]				: |c0020FF20[ 1 - 4 ]", 14.4f);
 				DisplayText("|c00506000[ReplayMoreSens]				: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[PrintOrderName]				: |c0020FF20[ 0 / 1 ]", 14.4f);
-				DisplayText("|c00506000[SkipIllusions]				: |c0020FF20[ 0 / 1 ]", 14.4f);
 			}
 			else if (helpindex == 2)
 			{
+				DisplayText("|c00506000[SkipIllusions]				: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectImpossibleClicks]			: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectItemDestroyer]			: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[DetectOwnItems]					: |c0020FF20[ 0 / 1 ]", 14.4f);
-				DisplayText("|c00506000[DetectPointClicks]				: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[TechiesDetonateId]				: |c0020FF20[ 0 / DETONID ]", 14.4f);
 				DisplayText("|c00506000[DebugLog]						: |c0020FF20[ 0 / 1 ]", 14.4f);
 				DisplayText("|c00506000[Debug]							: |c0020FF20[ 0 / 1 ]", 14.4f);
@@ -4282,9 +4154,9 @@ void ProcessCmdString(std::string str)
 
 void ProcessJassString(int sid)
 {
-	if (GetGameTime() != LastCmdGameTime)
+	if (CurGameTime != LastCmdGameTime)
 	{
-		LastCmdGameTime = GetGameTime();
+		LastCmdGameTime = CurGameTime;
 		char* realStr = ReadJassSID(sid);
 		if (realStr && realStr[0] != '\0')
 			ProcessCmdString(realStr);
@@ -4357,6 +4229,7 @@ void LoadFogClickWatcherConfig()
 		WatcherLog("-------------------------------------------------------------------------------\n");
 	}
 
+	GameTimeMode = fogwatcherconf.ReadInt("FogClickWatcher", "GameTimeMode", 1);
 
 	ICCUP_DOTA_SUPPORT = fogwatcherconf.ReadBool("FogClickWatcher", "ICCUP_DOTA_SUPPORT", true);
 
@@ -4480,7 +4353,6 @@ void LoadFogClickWatcherConfig()
 	DetectImpossibleClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectImpossibleClicks", false);
 	DetectItemDestroyer = fogwatcherconf.ReadBool("FogClickWatcher", "DetectItemDestroyer", false);
 	DetectOwnItems = fogwatcherconf.ReadBool("FogClickWatcher", "DetectOwnItems", false);
-	DetectPointClicks = fogwatcherconf.ReadBool("FogClickWatcher", "DetectPointClicks", false);
 	TechiesDetonateId = fogwatcherconf.ReadInt("FogClickWatcher", "TechiesDetonateId", 0);
 	DebugLog = fogwatcherconf.ReadBool("FogClickWatcher", "DebugLog", false);
 	DebugModeEnabled = fogwatcherconf.ReadBool("FogClickWatcher", "Debug", false);
@@ -4490,6 +4362,7 @@ void LoadFogClickWatcherConfig()
 	FullEventHookProcess = fogwatcherconf.ReadBool("FogClickWatcher", "FullEventHookProcess", true);
 
 	WatcherLog("Config:LoggingType->%i\n", LoggingType);
+	WatcherLog("Config:GameTimeMode->%i\n", GameTimeMode);
 	WatcherLog("Config:LocalPlayerEnable->%s\n", DetectLocalPlayer ? "TRUE" : "FALSE");
 	WatcherLog("Config:UnitDetectionMethod->%i\n", UnitDetectionMethod);
 	WatcherLog("Config:MeepoPoofID->%X\n", MeepoPoofID);
@@ -4502,7 +4375,6 @@ void LoadFogClickWatcherConfig()
 	WatcherLog("Config:DetectImpossibleClicks->%s\n", DetectImpossibleClicks ? "TRUE" : "FALSE");
 	WatcherLog("Config:DetectItemDestroyer->%s\n", DetectItemDestroyer ? "TRUE" : "FALSE");
 	WatcherLog("Config:DetectOwnItems->%s\n", DetectOwnItems ? "TRUE" : "FALSE");
-	WatcherLog("Config:DetectPointClicks->%s\n", DetectPointClicks ? "TRUE" : "FALSE");
 	WatcherLog("Config:TechiesDetonateId->%i\n", TechiesDetonateId);
 	WatcherLog("Config:DebugLog->%s\n", DebugLog ? "TRUE" : "FALSE");
 	WatcherLog("Config:Debug->%s\n", DebugModeEnabled ? "TRUE" : "FALSE");
@@ -4548,7 +4420,6 @@ void Init126aVer()
 	GetOrderTargetItem = (pGetOrderTargetItem)(GameDll + 0x3C3040);
 	GetOrderPointX = (pGetOrderPointX)(GameDll + 0x3C2D00);
 	GetOrderPointY = (pGetOrderPointY)(GameDll + 0x3C2D50);
-	GameTimeOffset = GameDll + 0xAB7E98;
 	GetPlayerController_real = (pGetPlayerController)(GameDll + 0x3C12B0);
 	GetPlayerSlotState_real = (pGetPlayerSlotState)(GameDll + 0x3C12D0);
 	pGlobalWar3Data = 0xAB65F4 + GameDll;
@@ -4601,6 +4472,10 @@ void GameWaiting()
 	{
 		if (GameStarted)
 		{
+			gameticks1 = std::chrono::steady_clock::now();
+			lastgameticks = 0;
+			startgameoffset = 0;
+
 			GameStartedReally = false;
 			IsReplayFound = false;
 			GameStarted = false;
@@ -4634,13 +4509,13 @@ void ProcessFogWatcher()
 			LoadFogClickWatcherConfig();
 
 			ActionTime = GetCurrentLocalTime();
-			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v18.5 for Warcraft 1.26a by UnrealKaraulov......");
+			WatcherLog("[%s]\n", ".......UnrealFogClickWatcher v18.6 for Warcraft 1.26a by UnrealKaraulov......");
 			WatcherLog("Game.dll address is 0x%X.\n", (unsigned int)GameDll);
 			WatcherLog("FogClick.dll address is 0x%X\n", (unsigned int)MainModule);
 
 			WatcherLog("Watch fog clicks for Game id: %i. Map name: %s.\n", GameID++, MapFileName);
 
-			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v18.5][1.26a]: Initialized.|r\0");
+			sprintf_s(PrintBuffer, 2048, "%s", "|c00FF2000[FogCW v18.6][1.26a]: Initialized.|r\0");
 			ActionTime = 0;
 			DisplayText(PrintBuffer, 14.4f);
 			if (IsReplayMode())
@@ -4675,7 +4550,7 @@ LRESULT CALLBACK HookCallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 	if (nCode < HC_ACTION)
 		return CallNextHookEx(hhookSysMsg, nCode, wParam, lParam);
 
-	CurTickCount = (long long)GetTickCount();
+	CurTickCount = GetRealTicks();
 
 	bool updated = false;
 
@@ -4710,7 +4585,10 @@ LRESULT CALLBACK HookCallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 		}
 		if (GameStarted)
 		{
-			CurGameTime = GetGameTime();
+			if (GameTimeMode == 1)
+				CurGameTime = GetGameTime(); 
+			else
+				CurGameTime = GetGameTicksWithRate();
 
 			if (llabs(CurGameTime - LastClickWatcher) >= FOG_CLICK_UPDATE_TIME && FogClickEnabled)
 			{
@@ -4785,7 +4663,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		if (GetModuleHandleA("FogDetectLauncher.exe"))
 		{
 			return TRUE;
-}
+		}
 #endif
 
 		if (!GetModuleHandleA("Game.dll"))
@@ -4812,7 +4690,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 		InitializeFogClickWatcher();
 #endif
 		FogClickLoadSuccess = true;
-	}
+		}
 	else if (r == DLL_PROCESS_DETACH)
 	{
 #ifdef LAUNCHER_MODE
@@ -4835,7 +4713,7 @@ BOOL __stdcall DllMain(HINSTANCE hDLL, unsigned int r, LPVOID)
 			}
 
 			UnhookWindowsHookEx(hhookSysMsg);
-		}
+	}
 	}
 
 	return TRUE;
